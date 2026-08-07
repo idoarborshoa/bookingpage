@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HOA Amenities Booking</title>
+  
+  <!-- Bootstrap 5 CSS CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-light">
+
+  <nav class="navbar navbar-dark bg-primary mb-4">
+    <div class="container">
+      <span class="navbar-brand mb-0 h1">Arbors HOA Amenity Booking</span>
+      <div id="authStatus" class="text-white small">Not logged in</div>
+    </div>
+  </nav>
+
+  <div class="container" style="max-width: 600px;">
+    
+    <!-- LOGIN CARD -->
+    <div id="loginSection" class="card shadow-sm mb-4">
+      <div class="card-header bg-white"><h5 class="card-title mb-0">Resident Login</h5></div>
+      <div class="card-body">
+        <form id="loginForm">
+          <div class="mb-3">
+            <label class="form-label">Email address</label>
+            <input type="email" id="loginEmail" class="form-control" placeholder="name@domain.com" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" id="loginPassword" class="form-control" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Sign In</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- BOOKING CARD (Hidden until logged in) -->
+    <div id="bookingSection" class="card shadow-sm mb-4 d-none">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">Book Facility</h5>
+        <button id="logoutBtn" class="btn btn-outline-danger btn-sm">Log Out</button>
+      </div>
+      <div class="card-body">
+        <div id="alertBox" class="alert d-none" role="alert"></div>
+
+        <form id="bookingForm">
+          <div class="mb-3">
+            <label class="form-label">Facility / Amenity</label>
+            <select id="amenitySelect" class="form-select" required>
+              <option value="">Loading amenities...</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Booking Date</label>
+            <input type="date" id="bookingDate" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Start Time</label>
+            <input type="time" id="bookingTime" class="form-control" value="09:00" required>
+          </div>
+          <button type="submit" id="bookBtn" class="btn btn-success w-100">Reserve Slot</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // 1. CONFIGURATION: Replace with your actual Supabase URL and Public Key
+    const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+    
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // DOM Elements
+    const loginSection = document.getElementById('loginSection');
+    const bookingSection = document.getElementById('bookingSection');
+    const authStatus = document.getElementById('authStatus');
+    const amenitySelect = document.getElementById('amenitySelect');
+    const alertBox = document.getElementById('alertBox');
+
+    // 2. CHECK SESSION STATUS ON LOAD
+    async function checkUserSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        showBookingUI(session.user);
+      } else {
+        showLoginUI();
+      }
+    }
+
+    function showLoginUI() {
+      loginSection.classList.remove('d-none');
+      bookingSection.classList.add('d-none');
+      authStatus.textContent = 'Not logged in';
+    }
+
+    function showBookingUI(user) {
+      loginSection.classList.add('d-none');
+      bookingSection.classList.remove('d-none');
+      authStatus.textContent = `Logged in: ${user.email}`;
+      loadAmenities();
+    }
+
+    // 3. LOGIN HANDLER
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      
+      if (error) {
+        alert('Login failed: ' + error.message);
+      } else {
+        showBookingUI(data.user);
+      }
+    });
+
+    // 4. LOGOUT HANDLER
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      showLoginUI();
+    });
+
+    // 5. FETCH AMENITIES INTO DROPDOWN
+    async function loadAmenities() {
+      const { data, error } = await supabase.from('amenities').select('*').order('name');
+      amenitySelect.innerHTML = '';
+      if (data && data.length > 0) {
+        data.forEach(item => {
+          const opt = document.createElement('option');
+          opt.value = item.amenity_id;
+          opt.textContent = item.name;
+          amenitySelect.appendChild(opt);
+        });
+      } else {
+        amenitySelect.innerHTML = '<option value="">No amenities available</option>';
+      }
+    }
+
+    // 6. BOOK AMENITY (EXECUTE RPC)
+    document.getElementById('bookingForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const amenityId = amenitySelect.value;
+      const date = document.getElementById('bookingDate').value;
+      const time = document.getElementById('bookingTime').value;
+      const isoTimestamp = `${date}T${time}:00-04:00`; // Eastern Daylight Offset
+
+      const bookBtn = document.getElementById('bookBtn');
+      bookBtn.disabled = true;
+      bookBtn.textContent = 'Checking availability...';
+
+      const { data: bookingId, error } = await supabase.rpc('book_amenity', {
+        p_amenity_id: amenityId,
+        p_booked_time: isoTimestamp
+      });
+
+      showAlert(error ? error.message : `Booking Confirmed! ID: ${bookingId}`, !error);
+      
+      bookBtn.disabled = false;
+      bookBtn.textContent = 'Reserve Slot';
+    });
+
+    function showAlert(msg, isSuccess) {
+      alertBox.className = `alert ${isSuccess ? 'alert-success' : 'alert-danger'}`;
+      alertBox.textContent = msg;
+      alertBox.classList.remove('d-none');
+    }
+
+    checkUserSession();
+  </script>
+</body>
+</html>
