@@ -4,176 +4,1207 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HOA Amenities Booking</title>
-  
-  <!-- Bootstrap 5 CSS CDN -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Supabase JS Client CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+  <style>
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+    #mainLayout { height: calc(100vh - 52px); display: flex; }
+    #sidebar {
+      width: 320px;
+      min-width: 320px;
+      height: 100%;
+      overflow-y: auto;
+      background: #fff;
+      border-right: 1px solid #dee2e6;
+      padding: 1rem;
+    }
+    #calendarArea { flex: 1; padding: 1rem; overflow: hidden; display: flex; flex-direction: column; }
+    #calendarToolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+    #calendar { flex: 1; min-height: 0; }
+    .fc-event { cursor: pointer; }
+    .my-booking .fc-event-main { border-left: 4px solid #198754; padding-left: 4px; }
+    .tab-btn.active { background-color: #0d6efd; color: #fff; }
+    .admin-panel { display: none; }
+    .admin-panel.active { display: block; }
+
+    @media (max-width: 767px) {
+      html, body { overflow: auto; height: auto; min-height: 100%; }
+      #mainLayout { height: auto; min-height: calc(100vh - 52px); flex-direction: column; }
+      #sidebar {
+        width: 100%;
+        min-width: 0;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid #dee2e6;
+        padding: 0.75rem;
+      }
+      #calendarArea {
+        padding: 0.75rem;
+        min-height: 70vh;
+      }
+      #calendar { min-height: 60vh; }
+      #legendSection { display: none !important; }
+      #bookingSection { order: -1; }
+      #loginSection { order: 0; }
+      #adminTabSection { margin-top: 0.75rem; }
+    }
+  </style>
 </head>
 <body class="bg-light">
 
-  <nav class="navbar navbar-dark bg-primary mb-4">
-    <div class="container">
-      <span class="navbar-brand mb-0 h1">Arbors HOA Amenity Booking</span>
-      <div id="authStatus" class="text-white small">Not logged in</div>
+  <nav class="navbar navbar-dark bg-primary py-1">
+    <div class="container-fluid">
+      <span class="navbar-brand mb-0 h1 fs-5">Arbors HOA Amenity Booking</span>
+      <div class="d-flex align-items-center gap-2">
+        <div id="authStatus" class="text-white small">Not logged in</div>
+        <div class="d-flex align-items-center gap-2">
+          <button id="changePasswordBtn" class="btn btn-outline-light btn-sm py-0 px-2 d-none">Change Password</button>
+          <button id="logoutBtn" class="btn btn-outline-danger btn-sm py-0 px-2 d-none">Log Out</button>
+        </div>
+      </div>
     </div>
   </nav>
 
-  <div class="container" style="max-width: 600px;">
-    
-    <!-- LOGIN CARD -->
-    <div id="loginSection" class="card shadow-sm mb-4">
-      <div class="card-header bg-white"><h5 class="card-title mb-0">Resident Login</h5></div>
-      <div class="card-body">
-        <form id="loginForm">
-          <div class="mb-3">
-            <label class="form-label">Email address</label>
-            <input type="email" id="loginEmail" class="form-control" placeholder="name@domain.com" required>
+  <div id="mainLayout">
+
+    <!-- ── Sidebar ── -->
+    <div id="sidebar">
+
+      <!-- Login Card -->
+      <div id="loginSection" class="card shadow-sm mb-3">
+        <div class="card-header bg-white py-2"><h6 class="mb-0">Resident Login</h6></div>
+        <div class="card-body py-2">
+          <form id="loginForm">
+            <div class="mb-2">
+              <label class="form-label small mb-1">Email</label>
+              <input type="email" id="loginEmail" class="form-control form-control-sm"
+                placeholder="name@domain.com" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small mb-1">Password</label>
+              <input type="password" id="loginPassword" class="form-control form-control-sm"
+                required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm w-100">Sign In</button>
+          </form>
+        </div>
+      </div>
+
+      <div id="viewSwitcher" class="d-none mb-3">
+        <div class="btn-group w-100" role="group">
+          <button type="button" class="btn btn-outline-primary btn-sm view-btn active" data-view="booking">Booking View</button>
+          <button type="button" class="btn btn-outline-primary btn-sm view-btn" data-view="admin">Admin View</button>
+        </div>
+      </div>
+
+      <!-- Booking Card (shown after login) -->
+      <div id="bookingSection" class="card shadow-sm mb-3 d-none">
+        <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+          <h6 class="mb-0">Book Facility</h6>
+        </div>
+        <div class="card-body py-2">
+          <div id="alertBox" class="alert py-2 d-none" role="alert"></div>
+          <form id="bookingForm">
+            <div class="mb-2">
+              <label class="form-label small mb-1">Facility / Amenity</label>
+              <select id="amenitySelect" class="form-select form-select-sm" required>
+                <option value="">Loading...</option>
+              </select>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small mb-1">Date</label>
+              <input type="date" id="bookingDate" class="form-control form-control-sm" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small mb-1">Start Time</label>
+              <select id="bookingTime" class="form-select form-select-sm" required>
+                <option value="00:00">12:00 AM</option>
+                <option value="00:30">12:30 AM</option>
+                <option value="01:00">1:00 AM</option>
+                <option value="01:30">1:30 AM</option>
+                <option value="02:00">2:00 AM</option>
+                <option value="02:30">2:30 AM</option>
+                <option value="03:00">3:00 AM</option>
+                <option value="03:30">3:30 AM</option>
+                <option value="04:00">4:00 AM</option>
+                <option value="04:30">4:30 AM</option>
+                <option value="05:00">5:00 AM</option>
+                <option value="05:30">5:30 AM</option>
+                <option value="06:00">6:00 AM</option>
+                <option value="06:30">6:30 AM</option>
+                <option value="07:00">7:00 AM</option>
+                <option value="07:30">7:30 AM</option>
+                <option value="08:00">8:00 AM</option>
+                <option value="08:30">8:30 AM</option>
+                <option value="09:00" selected>9:00 AM</option>
+                <option value="09:30">9:30 AM</option>
+                <option value="10:00">10:00 AM</option>
+                <option value="10:30">10:30 AM</option>
+                <option value="11:00">11:00 AM</option>
+                <option value="11:30">11:30 AM</option>
+                <option value="12:00">12:00 PM</option>
+                <option value="12:30">12:30 PM</option>
+                <option value="13:00">1:00 PM</option>
+                <option value="13:30">1:30 PM</option>
+                <option value="14:00">2:00 PM</option>
+                <option value="14:30">2:30 PM</option>
+                <option value="15:00">3:00 PM</option>
+                <option value="15:30">3:30 PM</option>
+                <option value="16:00">4:00 PM</option>
+                <option value="16:30">4:30 PM</option>
+                <option value="17:00">5:00 PM</option>
+                <option value="17:30">5:30 PM</option>
+                <option value="18:00">6:00 PM</option>
+                <option value="18:30">6:30 PM</option>
+                <option value="19:00">7:00 PM</option>
+                <option value="19:30">7:30 PM</option>
+                <option value="20:00">8:00 PM</option>
+                <option value="20:30">8:30 PM</option>
+                <option value="21:00">9:00 PM</option>
+                <option value="21:30">9:30 PM</option>
+                <option value="22:00">10:00 PM</option>
+                <option value="22:30">10:30 PM</option>
+                <option value="23:00">11:00 PM</option>
+                <option value="23:30">11:30 PM</option>
+              </select>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small mb-1">Duration</label>
+              <select id="bookingDuration" class="form-select form-select-sm" required>
+                <option value="30">30 minutes</option>
+                <option value="60">1 hour</option>
+                <option value="90">1 hour 30 minutes</option>
+                <option value="120">2 hours</option>
+              </select>
+            </div>
+            <div id="scheduleHint" class="form-text small text-muted mt-1"></div>
+            <button type="submit" id="bookBtn" class="btn btn-success btn-sm w-100">Reserve Slot</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Amenity colour legend (shown after login) -->
+      <div id="legendSection" class="d-none">
+        <p class="text-muted small mb-1 fw-semibold">Amenity Legend</p>
+        <div id="legendList" class="mb-2"></div>
+        <div class="d-flex align-items-center gap-2">
+          <div style="width:14px;height:14px;border-left:4px solid #198754;background:#d1e7dd;flex-shrink:0;border-radius:2px"></div>
+          <span class="small">Your bookings</span>
+        </div>
+      </div>
+
+      <div id="adminTabSection" class="d-none mt-3">
+        <div class="btn-group w-100" role="group">
+          <button type="button" class="btn btn-outline-primary btn-sm tab-btn active" data-target="bookingView">Booking View</button>
+          <button type="button" class="btn btn-outline-primary btn-sm tab-btn" data-target="adminView">Admin</button>
+        </div>
+      </div>
+
+    </div><!-- /sidebar -->
+
+    <!-- ── Calendar ── -->
+    <div id="calendarArea">
+      <div id="calendarPlaceholder" class="d-flex align-items-center justify-content-center h-100 text-muted">
+        <div class="text-center">
+          <div style="font-size:3rem">📅</div>
+          <p class="mt-2">Sign in to view all bookings</p>
+        </div>
+      </div>
+
+      <div id="bookingView" class="h-100">
+        <div id="calendarToolbar" class="d-flex align-items-center gap-2 mb-2">
+          <label class="small text-muted mb-0">Date</label>
+          <input type="date" id="calendarDatePicker" class="form-control form-control-sm" style="max-width: 170px;">
+          <select id="calendarViewSelect" class="form-select form-select-sm" style="max-width: 140px;">
+            <option value="listWeek">Agenda</option>
+            <option value="dayGridMonth">Month</option>
+            <option value="timeGridWeek">Week</option>
+            <option value="timeGridDay">Day</option>
+          </select>
+        </div>
+        <div id="calendar" class="d-none h-100"></div>
+      </div>
+
+      <div id="adminView" class="admin-panel h-100 overflow-auto d-none">
+        <div class="card shadow-sm h-100">
+          <div class="card-header bg-white d-flex align-items-center justify-content-between">
+            <h6 class="mb-0">User Management</h6>
+            <button type="button" id="openAddUserModalBtn" class="btn btn-outline-primary btn-sm" title="Add user">＋</button>
           </div>
-          <div class="mb-3">
-            <label class="form-label">Password</label>
-            <input type="password" id="loginPassword" class="form-control" required>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label small mb-1">Search users</label>
+              <input type="text" id="adminUserSearch" class="form-control form-control-sm" placeholder="UUID, name, or email">
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="adminUserTableBody"></tbody>
+              </table>
+            </div>
+            <div id="adminUserStatus" class="small text-muted mt-2"></div>
           </div>
-          <button type="submit" class="btn btn-primary w-100">Sign In</button>
-        </form>
+        </div>
       </div>
     </div>
 
-    <!-- BOOKING CARD (Hidden until logged in) -->
-    <div id="bookingSection" class="card shadow-sm mb-4 d-none">
-      <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Book Facility</h5>
-        <button id="logoutBtn" class="btn btn-outline-danger btn-sm">Log Out</button>
-      </div>
-      <div class="card-body">
-        <div id="alertBox" class="alert d-none" role="alert"></div>
+  </div><!-- /mainLayout -->
 
-        <form id="bookingForm">
-          <div class="mb-3">
-            <label class="form-label">Facility / Amenity</label>
-            <select id="amenitySelect" class="form-select" required>
-              <option value="">Loading amenities...</option>
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Booking Date</label>
-            <input type="date" id="bookingDate" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Start Time</label>
-            <input type="time" id="bookingTime" class="form-control" value="09:00" required>
-          </div>
-          <button type="submit" id="bookBtn" class="btn btn-success w-100">Reserve Slot</button>
-        </form>
+  <!-- ── Booking Detail / Cancel Modal ── -->
+  <div class="modal fade" id="bookingModal" tabindex="-1">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title" id="modalTitle">Booking Details</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body py-2" id="modalBody"></div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-danger btn-sm d-none" id="cancelBookingBtn">Cancel Booking</button>
+        </div>
       </div>
     </div>
-
   </div>
 
+  <div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title">Add User</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="addUserForm">
+          <div class="modal-body py-2">
+            <div class="mb-2">
+              <label class="form-label small mb-1">Email</label>
+              <input type="email" id="newUserEmail" class="form-control form-control-sm" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small mb-1">Name</label>
+              <input type="text" id="newUserName" class="form-control form-control-sm" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small mb-1">Password</label>
+              <input type="password" id="newUserPassword" class="form-control form-control-sm" required>
+            </div>
+          </div>
+          <div class="modal-footer py-2">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm">Create User</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="resetPasswordModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title">Reset Password</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="resetPasswordForm">
+          <div class="modal-body py-2">
+            <div class="mb-2">
+              <label class="form-label small mb-1">New Password</label>
+              <input type="password" id="resetPasswordNew" class="form-control form-control-sm" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small mb-1">Confirm Password</label>
+              <input type="password" id="resetPasswordConfirm" class="form-control form-control-sm" required>
+            </div>
+          </div>
+          <div class="modal-footer py-2">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm">Save Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="changePasswordModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title">Change Password</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="changePasswordForm">
+          <div class="modal-body py-2">
+            <div class="mb-2">
+              <label class="form-label small mb-1">New Password</label>
+              <input type="password" id="changePasswordNew" class="form-control form-control-sm" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small mb-1">Confirm Password</label>
+              <input type="password" id="changePasswordConfirm" class="form-control form-control-sm" required>
+            </div>
+          </div>
+          <div class="modal-footer py-2">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm">Update Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // 1. CONFIGURATION: Replace with your actual Supabase URL and Public Key
-    const SUPABASE_URL = 'https://osgmpmkqiwuixqnttllc.supabase.co';
+    const SUPABASE_URL     = 'https://osgmpmkqiwuixqnttllc.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zZ21wbWtxaXd1aXhxbnR0bGxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDc4MTQsImV4cCI6MjEwMTY4MzgxNH0.Uvz672RY9HtQIsfFLptm3YqXl8ICHbDUgFM_NYrskWw';
-    
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabaseClient   = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // DOM Elements
-    const loginSection = document.getElementById('loginSection');
-    const bookingSection = document.getElementById('bookingSection');
-    const authStatus = document.getElementById('authStatus');
-    const amenitySelect = document.getElementById('amenitySelect');
-    const alertBox = document.getElementById('alertBox');
-
-    // 2. CHECK SESSION STATUS ON LOAD
-    async function checkUserSession() {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (session) {
-        showBookingUI(session.user);
-      } else {
-        showLoginUI();
-      }
-    }
-
-    function showLoginUI() {
-      loginSection.classList.remove('d-none');
-      bookingSection.classList.add('d-none');
-      authStatus.textContent = 'Not logged in';
-    }
-
-    function showBookingUI(user) {
-      loginSection.classList.add('d-none');
-      bookingSection.classList.remove('d-none');
-      authStatus.textContent = `Logged in: ${user.email}`;
-      loadAmenities();
-    }
-
-    // 3. LOGIN HANDLER
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('loginEmail').value;
-      const password = document.getElementById('loginPassword').value;
-
-      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-      
-      if (error) {
-        alert('Login failed: ' + error.message);
-      } else {
-        showBookingUI(data.user);
-      }
+    const COLORS = ['#0d6efd','#6f42c1','#d63384','#fd7e14','#20c997','#0dcaf0','#6c757d','#dc3545'];
+    const SAMPLE_SCHEDULE_JSON = JSON.stringify({
+      monday: [{ start: '09:00', end: '12:00' }, { start: '14:00', end: '18:00' }],
+      tuesday: [{ start: '10:00', end: '17:00' }],
+      wednesday: [],
+      thursday: [{ start: '09:00', end: '17:00' }],
+      friday: [{ start: '09:00', end: '17:00' }],
+      saturday: [{ start: '10:00', end: '18:00' }],
+      sunday: [],
+      blocked_dates: ['2026-08-15']
     });
 
-    // 4. LOGOUT HANDLER
+    let calendar       = null;
+    let currentUser    = null;
+    let bookingModal   = null;
+    let adminUserModal = null;
+    let resetPasswordModal = null;
+    let changePasswordModal = null;
+    let activeEventId  = null;
+    let isSuperAdmin   = false;
+    let currentView    = 'booking';
+    let adminUsersCache = [];
+    let pendingPasswordResetUser = null;
+    const amenityColors = {}; // amenity_id → { color, name }
+
+    // ── UI helpers ────────────────────────────────────────────────────────────
+
+    function showLoginUI() {
+      document.getElementById('loginSection').classList.remove('d-none');
+      document.getElementById('bookingSection').classList.add('d-none');
+      document.getElementById('legendSection').classList.add('d-none');
+      document.getElementById('authStatus').textContent = 'Not logged in';
+      document.getElementById('changePasswordBtn').classList.add('d-none');
+      document.getElementById('logoutBtn').classList.add('d-none');
+      document.getElementById('calendarPlaceholder').classList.remove('d-none');
+      document.getElementById('calendar').classList.add('d-none');
+      document.getElementById('viewSwitcher').classList.add('d-none');
+      document.getElementById('adminView').classList.add('d-none');
+      document.getElementById('bookingView').classList.remove('d-none');
+      currentUser = null;
+      isSuperAdmin = false;
+      currentView = 'booking';
+      if (calendar) { calendar.destroy(); calendar = null; }
+    }
+
+    async function checkSuperAdminStatus(userId) {
+      try {
+        const { data, error } = await supabaseClient.rpc('is_superadmin', { user_id: userId });
+        if (error) {
+          console.warn('is_superadmin RPC unavailable:', error.message);
+          return false;
+        }
+        return !!data;
+      } catch (err) {
+        console.warn('is_superadmin RPC check failed:', err);
+        return false;
+      }
+    }
+
+    async function showBookingUI(user) {
+      currentUser = user;
+      isSuperAdmin = await checkSuperAdminStatus(user.id);
+      document.getElementById('loginSection').classList.add('d-none');
+      document.getElementById('authStatus').textContent = `Logged in: ${user.email}${isSuperAdmin ? ' • Super admin' : ''}`;
+      document.getElementById('changePasswordBtn').classList.remove('d-none');
+      document.getElementById('logoutBtn').classList.remove('d-none');
+      document.getElementById('viewSwitcher').classList.toggle('d-none', !isSuperAdmin);
+      await loadAmenities();
+      document.getElementById('legendSection').classList.remove('d-none');
+      document.getElementById('calendarPlaceholder').classList.add('d-none');
+      document.getElementById('calendar').classList.remove('d-none');
+      setActiveView('booking');
+      if (isSuperAdmin) {
+        await loadAdminData();
+      }
+      initCalendar();
+    }
+
+    function showAlert(msg, isSuccess) {
+      const box = document.getElementById('alertBox');
+      box.className = `alert py-2 ${isSuccess ? 'alert-success' : 'alert-danger'}`;
+      box.textContent = msg;
+      box.classList.remove('d-none');
+      setTimeout(() => box.classList.add('d-none'), 8000);
+    }
+
+    function setActiveView(view) {
+      currentView = view;
+      const bookingSection = document.getElementById('bookingSection');
+      const legendSection = document.getElementById('legendSection');
+      const bookingView = document.getElementById('bookingView');
+      const adminView = document.getElementById('adminView');
+      document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === view);
+      });
+
+      if (view === 'admin') {
+        bookingSection.classList.add('d-none');
+        legendSection.classList.add('d-none');
+        bookingView.classList.add('d-none');
+        adminView.classList.remove('d-none');
+        adminView.classList.add('active');
+      } else {
+        bookingSection.classList.remove('d-none');
+        legendSection.classList.remove('d-none');
+        bookingView.classList.remove('d-none');
+        adminView.classList.add('d-none');
+        adminView.classList.remove('active');
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    }
+
+    function normalizeAdminUser(item) {
+      const source = item.raw || item;
+      const id = source.id || source.user_id || source.uuid || source.userId || source.user_uuid || source.userid || null;
+      const name = source.name || source.full_name || source.display_name || source.username || '';
+      const email = source.email || source.user_email || '';
+      const isSuperAdmin = source.is_superadmin ?? source.isAdmin ?? source.is_admin ?? source.role === 'superadmin' ?? false;
+      const createdAt = source.created_at || source.createdAt || source.created || source.inserted_at || '';
+      return { id, name, email, isSuperAdmin, createdAt, raw: source };
+    }
+
+    function renderAdminUsers() {
+      const tableBody = document.getElementById('adminUserTableBody');
+      const status = document.getElementById('adminUserStatus');
+      const searchValue = document.getElementById('adminUserSearch').value.trim().toLowerCase();
+
+      if (!tableBody) return;
+
+      const filteredUsers = adminUsersCache.filter(user => {
+        const haystack = [user.id, user.name, user.email].filter(Boolean).join(' ').toLowerCase();
+        return !searchValue || haystack.includes(searchValue);
+      });
+
+      if (!filteredUsers.length) {
+        tableBody.innerHTML = '<tr><td colspan="5" class="text-muted">No users found.</td></tr>';
+        status.textContent = 'No matching users.';
+        return;
+      }
+
+      tableBody.innerHTML = filteredUsers.map(user => {
+        const isSelf = !!(currentUser && user.id && currentUser.id === user.id);
+        return `
+          <tr>
+            <td>
+              <div class="fw-semibold">${escapeHtml(user.name || 'Unnamed user')}</div>
+              <div class="small text-muted">${escapeHtml(user.id || 'No UUID')}</div>
+            </td>
+            <td>${escapeHtml(user.email || '—')}</td>
+            <td>${user.isSuperAdmin ? '<span class="badge bg-danger">Super admin</span>' : '<span class="badge bg-secondary">User</span>'}</td>
+            <td>${escapeHtml(user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—')}</td>
+            <td>
+              <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-secondary" type="button" data-action="reset" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''}>Reset password</button>
+                <button class="btn btn-outline-danger" type="button" data-action="delete" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''}>Delete</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      status.textContent = `${filteredUsers.length} user${filteredUsers.length === 1 ? '' : 's'} shown.`;
+    }
+
+    function openResetPasswordModal(user) {
+      if (!user || !user.id) {
+        showAlert('This user does not have a UUID available for password reset.', false);
+        return;
+      }
+
+      if (currentUser && user.id === currentUser.id) {
+        showAlert('You cannot reset your own password from this screen.', false);
+        return;
+      }
+
+      pendingPasswordResetUser = user;
+      document.getElementById('resetPasswordForm').reset();
+      resetPasswordModal.show();
+    }
+
+    async function resetUserPassword(user) {
+      if (!user || !user.id) {
+        showAlert('This user does not have a UUID available for password reset.', false);
+        return;
+      }
+
+      if (currentUser && user.id === currentUser.id) {
+        showAlert('You cannot reset your own password from this screen.', false);
+        return;
+      }
+
+      openResetPasswordModal(user);
+    }
+
+    async function deleteAdminUser(user) {
+      const userId = user.id;
+      if (!userId) {
+        showAlert('This user does not have a UUID available for deletion.', false);
+        return;
+      }
+
+      if (currentUser && user.id === currentUser.id) {
+        showAlert('You cannot delete your own account from this screen.', false);
+        return;
+      }
+
+      if (!window.confirm(`Delete ${user.name || user.email || 'this user'}?`)) return;
+
+      const attempts = [
+        () => supabaseClient.rpc('delete_user', { p_user_id: userId }),
+        () => supabaseClient.rpc('admin_delete_user', { p_user_id: userId }),
+        () => supabaseClient.auth.admin && typeof supabaseClient.auth.admin.deleteUser === 'function'
+          ? supabaseClient.auth.admin.deleteUser(userId)
+          : Promise.reject(new Error('Delete API unavailable'))
+      ];
+
+      let lastError = null;
+      for (const attempt of attempts) {
+        try {
+          const { error } = await attempt();
+          if (!error) {
+            showAlert('User deleted successfully.', true);
+            await loadAdminData();
+            return;
+          }
+          lastError = error;
+        } catch (err) {
+          lastError = err;
+        }
+      }
+
+      showAlert(`Could not delete user: ${lastError?.message || 'Unknown error'}`, false);
+    }
+
+    async function loadAdminData() {
+      const tableBody = document.getElementById('adminUserTableBody');
+      const status = document.getElementById('adminUserStatus');
+      if (!tableBody || !status) return;
+
+      tableBody.innerHTML = '<tr><td colspan="5" class="text-muted">Loading users…</td></tr>';
+      status.textContent = 'Loading users…';
+
+      try {
+        const { data, error } = await supabaseClient.rpc('admin_get_all_users');
+        if (error) throw error;
+
+        const normalizedUsers = (Array.isArray(data) ? data : []).map(normalizeAdminUser).filter(user => user.id || user.email || user.name);
+        adminUsersCache = normalizedUsers;
+        renderAdminUsers();
+
+        if (!adminUsersCache.length) {
+          status.textContent = 'No users available.';
+        }
+      } catch (err) {
+        adminUsersCache = [];
+        renderAdminUsers();
+        status.textContent = `Unable to load users: ${err.message}`;
+      }
+    }
+
+    // ── Auth ──────────────────────────────────────────────────────────────────
+
+    async function checkUserSession() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) showBookingUI(session.user); else showLoginUI();
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email:    document.getElementById('loginEmail').value,
+        password: document.getElementById('loginPassword').value
+      });
+      if (error) alert('Login failed: ' + error.message);
+      else showBookingUI(data.user);
+    });
+
     document.getElementById('logoutBtn').addEventListener('click', async () => {
       await supabaseClient.auth.signOut();
       showLoginUI();
     });
 
-    // 5. FETCH AMENITIES INTO DROPDOWN
+    document.getElementById('changePasswordBtn').addEventListener('click', () => {
+      document.getElementById('changePasswordForm').reset();
+      changePasswordModal.show();
+    });
+
+    document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newPassword = document.getElementById('changePasswordNew').value;
+      const confirmPassword = document.getElementById('changePasswordConfirm').value;
+      const submitBtn = e.submitter || document.querySelector('#changePasswordForm button[type="submit"]');
+
+      if (newPassword !== confirmPassword) {
+        showAlert('Passwords do not match.', false);
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Updating…';
+
+      const { data, error } = await supabaseClient.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        console.error('Password update failed:', error.message);
+        showAlert(`Password update failed: ${error.message}`, false);
+      } else {
+        console.log('Password updated successfully!');
+        showAlert('Password updated successfully!', true);
+        changePasswordModal.hide();
+      }
+
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Update Password';
+    });
+
+    // ── Amenities ─────────────────────────────────────────────────────────────
+
+    function parseAmenitySchedule(scheduleValue) {
+      if (!scheduleValue) return null;
+      if (typeof scheduleValue === 'string') {
+        const trimmed = scheduleValue.trim();
+        if (!trimmed) return null;
+        try {
+          return JSON.parse(trimmed);
+        } catch (err) {
+          return null;
+        }
+      }
+      return scheduleValue;
+    }
+
+    function serializeScheduleValue(scheduleValue) {
+      if (!scheduleValue) return SAMPLE_SCHEDULE_JSON;
+      if (typeof scheduleValue === 'string') return scheduleValue;
+      return JSON.stringify(scheduleValue);
+    }
+
+    function getDayName(date) {
+      return ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()];
+    }
+
+    function parseTimeToMinutes(value) {
+      const [hours, minutes] = String(value).split(':').map(Number);
+      return hours * 60 + minutes;
+    }
+
+    function toTimeLabel(minutes) {
+      const h = String(Math.floor(minutes / 60)).padStart(2, '0');
+      const m = String(minutes % 60).padStart(2, '0');
+      return `${h}:${m}`;
+    }
+
+    function normalizeBookingTime(value) {
+      const minutes = parseTimeToMinutes(value);
+      const roundedMinutes = Math.round(minutes / 30) * 30;
+      const normalizedValue = toTimeLabel(roundedMinutes);
+      return {
+        value: normalizedValue,
+        isHalfHour: minutes % 30 === 0
+      };
+    }
+
+    function getTomorrowDateString() {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const year = tomorrow.getFullYear();
+      const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
+      const day = String(tomorrow.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function formatTimeLabel(minutes) {
+      const hours = Math.floor(minutes / 60) % 24;
+      const suffix = hours >= 12 ? 'PM' : 'AM';
+      let displayHour = hours % 12;
+      if (displayHour === 0) displayHour = 12;
+      const displayMinutes = minutes % 60;
+      return `${displayHour}:${String(displayMinutes).padStart(2, '0')} ${suffix}`;
+    }
+
+    function buildTimeOptions() {
+      const dateInput = document.getElementById('bookingDate');
+      const timeSelect = document.getElementById('bookingTime');
+      const durationMinutes = Number(document.getElementById('bookingDuration').value);
+      const selectedOption = document.getElementById('amenitySelect').selectedOptions[0];
+      const scheduleValue = selectedOption ? selectedOption.dataset.schedule : SAMPLE_SCHEDULE_JSON;
+      const previousValue = timeSelect.value;
+
+      timeSelect.innerHTML = '';
+
+      if (!dateInput.value) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'Select a date first';
+        timeSelect.appendChild(opt);
+        return;
+      }
+
+      const selectedDate = new Date(`${dateInput.value}T12:00:00`);
+      const windows = getAllowedWindowsForDate(scheduleValue, selectedDate);
+      const effectiveWindows = windows === null ? [{ start: '00:00', end: '23:30' }] : windows;
+
+      if (!effectiveWindows.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No available times';
+        timeSelect.appendChild(opt);
+        return;
+      }
+
+      const validSlots = [];
+      effectiveWindows.forEach(window => {
+        const startMinutes = parseTimeToMinutes(window.start);
+        const endMinutes = parseTimeToMinutes(window.end);
+        for (let minutes = startMinutes; minutes + durationMinutes <= endMinutes; minutes += 30) {
+          validSlots.push(minutes);
+        }
+      });
+
+      const uniqueSlots = [...new Set(validSlots)].sort((a, b) => a - b);
+      if (!uniqueSlots.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No available times for selected duration';
+        timeSelect.appendChild(opt);
+        return;
+      }
+
+      uniqueSlots.forEach(minutes => {
+        const opt = document.createElement('option');
+        opt.value = toTimeLabel(minutes);
+        opt.textContent = formatTimeLabel(minutes);
+        timeSelect.appendChild(opt);
+      });
+
+      const nextValue = previousValue && uniqueSlots.includes(parseTimeToMinutes(previousValue))
+        ? previousValue
+        : toTimeLabel(uniqueSlots[0]);
+      timeSelect.value = nextValue;
+    }
+
+    function getAllowedWindowsForDate(scheduleValue, selectedDate) {
+      const schedule = parseAmenitySchedule(scheduleValue);
+      if (!schedule) return null;
+
+      const dateKey = selectedDate.toISOString().slice(0, 10);
+      if (Array.isArray(schedule.blocked_dates) && schedule.blocked_dates.includes(dateKey)) {
+        return [];
+      }
+
+      const dayName = getDayName(selectedDate);
+      const dayWindows = schedule[dayName];
+      if (Array.isArray(dayWindows)) {
+        return dayWindows;
+      }
+
+      if (Array.isArray(schedule.blocked_days) && schedule.blocked_days.includes(dayName)) {
+        return [];
+      }
+
+      return null;
+    }
+
+    function validateBookingTime(selectedDate, selectedTime, durationMinutes, scheduleValue) {
+      const windows = getAllowedWindowsForDate(scheduleValue, selectedDate);
+      if (windows === null) {
+        return { isValid: true, message: 'Using default availability.', windows: [] };
+      }
+      if (!windows.length) {
+        return { isValid: false, message: 'This amenity is not available on the selected day.', windows: [] };
+      }
+
+      if (durationMinutes > 120) {
+        return { isValid: false, message: 'Maximum booking duration is 2 hours.', windows };
+      }
+
+      const startMinutes = parseTimeToMinutes(selectedTime);
+      const endMinutes = startMinutes + durationMinutes;
+      const isAllowed = windows.some(window => {
+        const start = parseTimeToMinutes(window.start);
+        const end = parseTimeToMinutes(window.end);
+        return startMinutes >= start && endMinutes <= end && durationMinutes % 30 === 0;
+      });
+
+      if (!isAllowed) {
+        const labels = windows.map(w => `${w.start}–${w.end}`).join(', ');
+        return {
+          isValid: false,
+          message: `Booking must stay within the allowed window(s): ${labels}`,
+          windows
+        };
+      }
+
+      return {
+        isValid: true,
+        message: `Booking is within the allowed window(s).`,
+        windows
+      };
+    }
+
+    function updateScheduleHint() {
+      const dateValue = document.getElementById('bookingDate').value;
+      const selectedOption = document.getElementById('amenitySelect').selectedOptions[0];
+      const scheduleValue = selectedOption ? selectedOption.dataset.schedule : SAMPLE_SCHEDULE_JSON;
+      const hint = document.getElementById('scheduleHint');
+
+      if (!dateValue) {
+        hint.textContent = 'Choose a date to view the amenity schedule.';
+        return;
+      }
+
+      const selectedDate = new Date(`${dateValue}T12:00:00`);
+      const windows = getAllowedWindowsForDate(scheduleValue, selectedDate);
+      if (windows === null) {
+        hint.textContent = 'No specific schedule found for this amenity. Default booking is allowed.';
+        return;
+      }
+
+      if (!windows.length) {
+        hint.textContent = 'No booking windows are available on this day.';
+        return;
+      }
+
+      const labels = windows.map(w => `${w.start}–${w.end}`).join(' | ');
+      hint.textContent = `Allowed windows: ${labels}`;
+    }
+
+    function refreshBookingAvailability() {
+      updateScheduleHint();
+      buildTimeOptions();
+    }
+
     async function loadAmenities() {
-      const { data, error } = await supabaseClient.from('amenities').select('*').order('name');
-      amenitySelect.innerHTML = '';
+      const { data } = await supabaseClient.from('amenities').select('*').order('name');
+      const sel    = document.getElementById('amenitySelect');
+      const legend = document.getElementById('legendList');
+      sel.innerHTML = '';
+      legend.innerHTML = '';
+
       if (data && data.length > 0) {
-        data.forEach(item => {
+        data.forEach((item, i) => {
+          const color = COLORS[i % COLORS.length];
+          amenityColors[item.amenity_id] = { color, name: item.name };
+
           const opt = document.createElement('option');
           opt.value = item.amenity_id;
           opt.textContent = item.name;
-          amenitySelect.appendChild(opt);
+          opt.dataset.schedule = serializeScheduleValue(item.schedule);
+          sel.appendChild(opt);
+
+          const row = document.createElement('div');
+          row.className = 'd-flex align-items-center gap-2 mb-1';
+          row.innerHTML = `<div style="width:14px;height:14px;border-radius:3px;background:${color};flex-shrink:0"></div><span class="small">${item.name}</span>`;
+          legend.appendChild(row);
         });
       } else {
-        amenitySelect.innerHTML = '<option value="">No amenities available</option>';
+        sel.innerHTML = '<option value="">No amenities available</option>';
       }
+
+      refreshBookingAvailability();
     }
 
-    // 6. BOOK AMENITY (EXECUTE RPC)
+    // ── Calendar ──────────────────────────────────────────────────────────────
+
+    async function fetchBookings() {
+      const { data, error } = await supabaseClient
+        .from('bookings')
+        .select('booking_id, amenity_id, booked_time, user_id, amenities(name)');
+
+      if (error) { console.error('Bookings fetch error:', error); return []; }
+
+      return (data || []).map(b => {
+        const info        = amenityColors[b.amenity_id] || {};
+        const color       = info.color || '#6c757d';
+        const amenityName = (b.amenities && b.amenities.name) || info.name || 'Booking';
+        const isMine      = currentUser && b.user_id === currentUser.id;
+        const start       = new Date(b.booked_time);
+        const end         = new Date(start.getTime() + 60 * 60 * 1000); // 1-hour default duration
+
+        return {
+          id: b.booking_id,
+          title: amenityName,
+          start, end,
+          backgroundColor: color,
+          borderColor: isMine ? '#198754' : color,
+          textColor: '#fff',
+          classNames: isMine ? ['my-booking'] : [],
+          extendedProps: { amenityName, bookedTime: b.booked_time, isMine }
+        };
+      });
+    }
+
+    function syncCalendarControls() {
+      const datePicker = document.getElementById('calendarDatePicker');
+      const viewSelect = document.getElementById('calendarViewSelect');
+      if (!calendar || !datePicker || !viewSelect) return;
+
+      const currentDate = calendar.getDate();
+      const year = currentDate.getFullYear();
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const day = String(currentDate.getDate()).padStart(2, '0');
+      datePicker.value = `${year}-${month}-${day}`;
+      viewSelect.value = calendar.view.type;
+    }
+
+    function initCalendar() {
+      if (calendar) calendar.destroy();
+      bookingModal = new bootstrap.Modal(document.getElementById('bookingModal'));
+
+      calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+        initialView: window.innerWidth < 768 ? 'listWeek' : 'dayGridMonth',
+        initialDate: new Date(),
+        height: '100%',
+        headerToolbar: {
+          left:   'prev,next today',
+          center: 'title',
+          right:  'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+        },
+        events: fetchBookings,
+        datesSet: syncCalendarControls,
+        viewDidMount: syncCalendarControls,
+        eventClick(info) {
+          const { amenityName, bookedTime, isMine } = info.event.extendedProps;
+          const dt      = new Date(bookedTime);
+          const dateStr = dt.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+          const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+          document.getElementById('modalTitle').textContent = amenityName;
+          document.getElementById('modalBody').innerHTML = `
+            <p class="mb-1"><strong>Date:</strong> ${dateStr}</p>
+            <p class="mb-0"><strong>Time:</strong> ${timeStr}</p>
+            ${isMine ? '<div class="mt-2"><span class="badge bg-success">Your Booking</span></div>' : ''}
+          `;
+
+          const cancelBtn = document.getElementById('cancelBookingBtn');
+          if (isMine) {
+            cancelBtn.classList.remove('d-none');
+            activeEventId = info.event.id;
+          } else {
+            cancelBtn.classList.add('d-none');
+            activeEventId = null;
+          }
+          bookingModal.show();
+        }
+      });
+
+      calendar.render();
+      syncCalendarControls();
+    }
+
+    document.getElementById('calendarDatePicker').addEventListener('change', () => {
+      if (!calendar) return;
+      calendar.gotoDate(new Date(`${document.getElementById('calendarDatePicker').value}T12:00:00`));
+    });
+
+    document.getElementById('calendarViewSelect').addEventListener('change', (e) => {
+      if (!calendar) return;
+      calendar.changeView(e.target.value);
+      syncCalendarControls();
+    });
+
+    document.querySelectorAll('.view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.view === 'admin' && !isSuperAdmin) return;
+        setActiveView(btn.dataset.view);
+        if (btn.dataset.view === 'admin') {
+          loadAdminData();
+        }
+      });
+    });
+
+    // ── Cancel booking ────────────────────────────────────────────────────────
+
+    document.getElementById('cancelBookingBtn').addEventListener('click', async () => {
+      if (!activeEventId) return;
+      const btn = document.getElementById('cancelBookingBtn');
+      btn.disabled = true;
+      btn.textContent = 'Cancelling…';
+
+      const { error } = await supabaseClient.rpc('cancel_booking', {
+        p_booking_id:  activeEventId
+      });
+
+      btn.disabled = false;
+      btn.textContent = 'Cancel Booking';
+
+      console.log('Cancel booking result:', error);
+
+      if (error) {
+        alert('Could not cancel booking: ' + error.message);
+      } else {
+        bookingModal.hide();
+        calendar.refetchEvents();
+        showAlert('Booking cancelled successfully.', true);
+      }
+    });
+
+    // ── New booking form ──────────────────────────────────────────────────────
+
+    document.getElementById('amenitySelect').addEventListener('change', refreshBookingAvailability);
+    document.getElementById('bookingDate').addEventListener('change', refreshBookingAvailability);
+    document.getElementById('bookingDuration').addEventListener('change', refreshBookingAvailability);
+    document.getElementById('adminUserSearch').addEventListener('input', renderAdminUsers);
+
+    document.getElementById('adminUserTableBody').addEventListener('click', async (e) => {
+      const button = e.target.closest('button[data-action]');
+      if (!button) return;
+      const action = button.getAttribute('data-action');
+      const userId = button.getAttribute('data-user-id');
+      const user = adminUsersCache.find(item => item.id === userId);
+      if (!user) return;
+      if (action === 'reset') {
+        await resetUserPassword(user);
+      } else if (action === 'delete') {
+        await deleteAdminUser(user);
+      }
+    });
+
+    document.getElementById('openAddUserModalBtn').addEventListener('click', () => {
+      adminUserModal.show();
+    });
+
+    document.getElementById('resetPasswordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newPassword = document.getElementById('resetPasswordNew').value;
+      const confirmPassword = document.getElementById('resetPasswordConfirm').value;
+      const submitBtn = e.submitter || document.querySelector('#resetPasswordForm button[type="submit"]');
+
+      if (newPassword !== confirmPassword) {
+        showAlert('Passwords do not match.', false);
+        return;
+      }
+
+      if (!pendingPasswordResetUser?.id) {
+        showAlert('No user selected for password reset.', false);
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving…';
+
+      try {
+        const { error } = await supabaseClient.rpc('admin_change_user_password', {
+          p_user_uuid: pendingPasswordResetUser.id,
+          p_newpassword: newPassword
+        });
+
+        if (error) throw error;
+        showAlert('Password updated successfully.', true);
+        resetPasswordModal.hide();
+      } catch (err) {
+        showAlert(`Could not update password: ${err.message}`, false);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save Password';
+      }
+    });
+
+    document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('newUserEmail').value.trim();
+      const name = document.getElementById('newUserName').value.trim();
+      const password = document.getElementById('newUserPassword').value;
+
+      const createBtn = e.submitter || document.querySelector('#addUserForm button[type="submit"]');
+      createBtn.disabled = true;
+      createBtn.textContent = 'Creating…';
+
+      try {
+        const { data, error } = await supabaseClient.rpc('admin_create_user', {
+          p_email: email,
+          p_password: password,
+          p_name: name,
+          p_is_superadmin: false
+        });
+
+        if (error) throw error;
+        showAlert(`User created successfully. UUID: ${data || 'n/a'}`, true);
+        adminUserModal.hide();
+        document.getElementById('addUserForm').reset();
+        await loadAdminData();
+      } catch (err) {
+        showAlert(`Could not create user: ${err.message}`, false);
+      } finally {
+        createBtn.disabled = false;
+        createBtn.textContent = 'Create User';
+      }
+    });
+
     document.getElementById('bookingForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      
-      const amenityId = amenitySelect.value;
-      const date = document.getElementById('bookingDate').value;
-      const time = document.getElementById('bookingTime').value;
-      const isoTimestamp = `${date}T${time}:00-04:00`; // Eastern Daylight Offset
+      const amenityId    = document.getElementById('amenitySelect').value;
+      const date         = document.getElementById('bookingDate').value;
+      const timeInput    = document.getElementById('bookingTime');
+      const time         = timeInput.value;
+      const durationMinutes = Number(document.getElementById('bookingDuration').value);
+      const selectedOption = document.getElementById('amenitySelect').selectedOptions[0];
+      const scheduleValue = selectedOption ? selectedOption.dataset.schedule : SAMPLE_SCHEDULE_JSON;
+      const validation = validateBookingTime(new Date(`${date}T12:00:00`), time, durationMinutes, scheduleValue);
+      console.log('scheduleValue:', scheduleValue, 'validation:', validation);
+      if (!validation.isValid) {
+        showAlert(validation.message, false);
+        return;
+      }
+
+      const isoTimestamp = new Date(`${date}T${time}:00`).toISOString();
 
       const bookBtn = document.getElementById('bookBtn');
       bookBtn.disabled = true;
-      bookBtn.textContent = 'Checking availability...';
+      bookBtn.textContent = 'Checking…';
 
       const { data: bookingId, error } = await supabaseClient.rpc('book_amenity', {
-        p_amenity_id: amenityId,
+        p_amenity_id:  amenityId,
         p_booked_time: isoTimestamp
       });
 
-      showAlert(error ? error.message : `Booking Confirmed! ID: ${bookingId}`, !error);
-      
+      showAlert(error ? error.message : `Booking confirmed! ID: ${bookingId}`, !error);
       bookBtn.disabled = false;
       bookBtn.textContent = 'Reserve Slot';
+      if (!error && calendar) calendar.refetchEvents();
     });
 
-    function showAlert(msg, isSuccess) {
-      alertBox.className = `alert ${isSuccess ? 'alert-success' : 'alert-danger'}`;
-      alertBox.textContent = msg;
-      alertBox.classList.remove('d-none');
-    }
-
+    adminUserModal = new bootstrap.Modal(document.getElementById('addUserModal'));
+    resetPasswordModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+    changePasswordModal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
+    document.getElementById('bookingDate').value = getTomorrowDateString();
+    refreshBookingAvailability();
     checkUserSession();
   </script>
 </body>
