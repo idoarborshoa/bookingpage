@@ -75,7 +75,7 @@
     const SUPABASE_URL = 'https://osgmpmkqiwuixqnttllc.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zZ21wbWtxaXd1aXhxbnR0bGxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDc4MTQsImV4cCI6MjEwMTY4MzgxNH0.Uvz672RY9HtQIsfFLptm3YqXl8ICHbDUgFM_NYrskWw';
     
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // DOM Elements
     const loginSection = document.getElementById('loginSection');
@@ -86,7 +86,7 @@
 
     // 2. CHECK SESSION STATUS ON LOAD
     async function checkUserSession() {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
         showBookingUI(session.user);
       } else {
@@ -113,7 +113,7 @@
       const email = document.getElementById('loginEmail').value;
       const password = document.getElementById('loginPassword').value;
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
       
       if (error) {
         alert('Login failed: ' + error.message);
@@ -124,13 +124,13 @@
 
     // 4. LOGOUT HANDLER
     document.getElementById('logoutBtn').addEventListener('click', async () => {
-      await supabase.auth.signOut();
+      await supabaseClient.auth.signOut();
       showLoginUI();
     });
 
     // 5. FETCH AMENITIES INTO DROPDOWN
     async function loadAmenities() {
-      const { data, error } = await supabase.from('amenities').select('*').order('name');
+      const { data, error } = await supabaseClient.from('amenities').select('*').order('name');
       amenitySelect.innerHTML = '';
       if (data && data.length > 0) {
         data.forEach(item => {
@@ -157,7 +157,7 @@
       bookBtn.disabled = true;
       bookBtn.textContent = 'Checking availability...';
 
-      const { data: bookingId, error } = await supabase.rpc('book_amenity', {
+      const { data: bookingId, error } = await supabaseClient.rpc('book_amenity', {
         p_amenity_id: amenityId,
         p_booked_time: isoTimestamp
       });
