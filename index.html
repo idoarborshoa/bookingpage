@@ -584,7 +584,7 @@
       if (!window.confirm(`Delete ${user.name || user.email || 'this user'}?`)) return;
 
       const attempts = [
-        () => supabaseClient.rpc('delete_user', { p_user_id: userId }),
+        () => supabaseClient.rpc('admin_delete_user', { p_target_user_id: userId }),
         () => supabaseClient.rpc('admin_delete_user', { p_user_id: userId }),
         () => supabaseClient.auth.admin && typeof supabaseClient.auth.admin.deleteUser === 'function'
           ? supabaseClient.auth.admin.deleteUser(userId)
@@ -1141,12 +1141,18 @@
       const email = document.getElementById('newUserEmail').value.trim();
       const name = document.getElementById('newUserName').value.trim();
       const password = document.getElementById('newUserPassword').value;
+      const { data: { session } } = await supabaseClient.auth.getSession();
 
+if (!session) {
+  alert('You must be logged in to create users!');
+  return;
+}
       const createBtn = e.submitter || document.querySelector('#addUserForm button[type="submit"]');
       createBtn.disabled = true;
       createBtn.textContent = 'Creating…';
 
       try {
+        /*
         const { data, error } = await supabaseClient.rpc('admin_create_user', {
           p_email: email,
           p_password: password,
@@ -1154,8 +1160,30 @@
           p_is_superadmin: false
         });
 
+        */
+       
+const { data, error } = await supabaseClient.functions.invoke('admin-create-user', {
+  body: {
+    email: email,
+    password: password,
+    name: name,
+    is_superadmin: false
+  }
+});
+
+  if (error) {
+    alert('Failed to create user: ' + error.message);
+  } else {
+    alert('User created successfully: ' + data.user.email);
+  }
+
+
         if (error) throw error;
         showAlert(`User created successfully. UUID: ${data || 'n/a'}`, true);
+        // Trigger Supabase to send a password reset / set password email automatically
+        await supabaseClient.auth.resetPasswordForEmail(email, {
+          redirectTo: 'https://your-hoa-site.com/reset-password.html'
+        });
         adminUserModal.hide();
         document.getElementById('addUserForm').reset();
         await loadAdminData();
