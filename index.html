@@ -382,6 +382,10 @@
               <label class="form-label small mb-1">Name</label>
               <input type="text" id="newUserName" class="form-control form-control-sm" required>
             </div>
+            <div class="mb-2">
+              <label class="form-label small mb-1">Unit Number</label>
+              <input type="number" min="1" max="250" id="newUserUnitNumber" class="form-control form-control-sm" required>
+            </div>
           </div>
           <div class="modal-footer py-2">
             <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
@@ -622,20 +626,29 @@
       const name = source.name || source.full_name || source.display_name || source.username || '';
       const email = source.email || source.user_email || '';
       const isSuperAdmin = source.is_superadmin ?? source.isAdmin ?? source.is_admin ?? source.role === 'superadmin' ?? false;
+      const unitNumber = source.unit_number || source.unitNumber || 'N/A';
       const createdAt = source.created_at || source.createdAt || source.created || source.inserted_at || '';
-      return { id, name, email, isSuperAdmin, createdAt, raw: source };
+      const isBanned = source.is_banned ?? source.isBanned ?? source.banned ?? true;
+      return { id, name, email, isSuperAdmin, unitNumber, createdAt, isBanned, raw: source };
     }
 
     function renderAdminUsers() {
       const tableBody = document.getElementById('adminUserTableBody');
       const status = document.getElementById('adminUserStatus');
       const searchValue = document.getElementById('adminUserSearch').value.trim().toLowerCase();
+      const normalizeSearchText = (value) => String(value || '')
+        .toLowerCase()
+        .replace(/[()\[\]{}#.,_-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
       if (!tableBody) return;
 
       const filteredUsers = adminUsersCache.filter(user => {
-        const haystack = [user.id, user.name, user.email].filter(Boolean).join(' ').toLowerCase();
-        return !searchValue || haystack.includes(searchValue);
+        const haystack = [user.id, user.name, user.email, user.unitNumber].filter(Boolean).join(' ');
+        const normalizedHaystack = normalizeSearchText(haystack);
+        const normalizedSearchValue = normalizeSearchText(searchValue);
+        return !normalizedSearchValue || normalizedHaystack.includes(normalizedSearchValue);
       });
 
       if (!filteredUsers.length) {
@@ -649,7 +662,7 @@
         return `
           <tr>
             <td>
-              <div class="fw-semibold">${escapeHtml(user.name || 'Unnamed user')}</div>
+              <div class="fw-semibold">${escapeHtml(user.name || 'Unnamed user')} (${escapeHtml(user.unitNumber || 'N/A')}) ${user.isBanned ? '<span class="badge bg-warning">DISABLED</span>' : ''}</div>
               <div class="small text-muted">${escapeHtml(user.id || 'No UUID')}</div>
             </td>
             <td>${escapeHtml(user.email || '—')}</td>
@@ -726,6 +739,18 @@
           : Promise.reject(new Error('Delete API unavailable'))
       ];
 
+      /* - TODO: need to properly ban users and not delete them
+      // To Ban a User:
+const { data, error } = await supabaseClient.functions.invoke('admin-ban-user', {
+  body: { user_id: 'TARGET_USER_UUID' }
+});
+
+// To Unban a User:
+const { data, error } = await supabaseClient.functions.invoke('admin-unban-user', {
+  body: { user_id: 'TARGET_USER_UUID' }
+});
+*/
+
       let lastError = null;
       for (const attempt of attempts) {
         try {
@@ -754,6 +779,7 @@
 
       try {
         const { data, error } = await supabaseClient.rpc('admin_get_all_users');
+        console.log('admin_get_all_users RPC result:', data, error);
         if (error) throw error;
 
         const normalizedUsers = (Array.isArray(data) ? data : []).map(normalizeAdminUser).filter(user => user.id || user.email || user.name);
@@ -1080,10 +1106,10 @@
     async function fetchBookings() {
       const { data, error } = await supabaseClient
         .from('bookings')
-        .select('booking_id, amenity_id, booked_time, user_id, amenities(name),end_time');
+        .select('booking_id, amenity_id, booked_time, user_id, amenities(name),end_time,public_profiles(name, unit_number)');
 
       if (error) { console.error('Bookings fetch error:', error); return []; }
-
+      console.log('Fetched bookings:', data);
       return (data || []).map(b => {
         const info        = amenityColors[b.amenity_id] || {};
         const color       = info.color || '#6c757d';
@@ -1091,6 +1117,8 @@
         const isMine      = currentUser && b.user_id === currentUser.id;
         const start       = new Date(b.booked_time);
         const end         = new Date(b.end_time);
+        const userName    = (b.public_profiles && b.public_profiles.name) || 'Unknown User';
+        const unitNumber  = (b.public_profiles && b.public_profiles.unit_number) || 'N/A';
 
         return {
           id: b.booking_id,
@@ -1100,7 +1128,7 @@
           borderColor: isMine ? '#198754' : color,
           textColor: '#fff',
           classNames: isMine ? ['my-booking'] : [],
-          extendedProps: { amenityName, bookedTime: b.booked_time, endTime: b.end_time, isMine }
+          extendedProps: { amenityName, bookedTime: b.booked_time, endTime: b.end_time, isMine, userName, unitNumber }
         };
       });
     }
@@ -1145,17 +1173,15 @@
 
           document.getElementById('modalTitle').textContent = amenityName;
           document.getElementById('modalBody').innerHTML = `
-            ${isMine ? '<div class="mt-2"><span class="badge bg-success">My Booking</span></div>' : '<div class="mt-2"><span class="badge bg-secondary">Not my booking</span></div>'}
+            ${isMine ? '<div class="mt-2"><span class="badge bg-success">My Booking</span></div>' : `<div class="mt-2"><span class="badge bg-secondary">Booked by ${info.event.extendedProps.userName} (${info.event.extendedProps.unitNumber})</span></div>`}
             <p class="mb-1"><strong>Date:</strong> ${dateStr}</p>
             <p class="mb-0"><strong>Start Time:</strong> ${timeStr}</p>
             <p class="mb-0"><strong>End Time:</strong> ${endTimeStr}</p>
           `;
 
-          if (dt < new Date()) {
-            
-          }
+          
           const allowCancel = (isMine || isSuperAdmin) && dt > new Date();
-
+          
           const cancelBtn = document.getElementById('cancelBookingBtn');
           if (allowCancel) {
             cancelBtn.classList.remove('d-none');
@@ -1248,7 +1274,7 @@
       e.preventDefault();
       const email = document.getElementById('newUserEmail').value.trim();
       const name = document.getElementById('newUserName').value.trim();
-      const password = document.getElementById('newUserPassword').value;
+      const unitNumber = document.getElementById('newUserUnitNumber').value;
       const { data: { session } } = await supabaseClient.auth.getSession();
 
       const createBtn = e.submitter || document.querySelector('#addUserForm button[type="submit"]');
@@ -1260,6 +1286,7 @@
           body: {
             email: email,
             name: name,
+            unit_number: unitNumber,
             is_superadmin: false,
             redirectTo: 'https://idoarborshoa.github.io/bookingpage/' // window.location.origin + '/index.html'
           }
