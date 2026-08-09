@@ -412,7 +412,7 @@
 
     const hash = window.location.hash;
     const isInviteOrRecovery = hash.includes('type=invite') || hash.includes('type=recovery');
-
+    analyzeHashParams();
 
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
       // Trigger if we detected an invite/recovery flow on page load
@@ -462,6 +462,23 @@
     let adminUsersCache = [];
     let pendingPasswordResetUser = null;
     const amenityColors = {}; // amenity_id → { color, name }
+
+    // --- load helpers
+    function analyzeHashParams() {
+      const params = new URLSearchParams(hash.substring(1)); // Remove the '#' character
+      const result = {
+        type: params.get('type'),
+        access_token: params.get('access_token'),
+        refresh_token: params.get('refresh_token'),
+        expires_in: params.get('expires_in'),
+        error: params.get('error'),
+        error_code: params.get('error_code'),
+        error_description: params.get('error_description')
+      };
+      if (result.error) {
+        showAlert(`Authentication error: ${result.error} - ${result.error_code} - ${result.error_description}`, false);
+      }
+    }
 
     // ── UI helpers ────────────────────────────────────────────────────────────
 
@@ -646,7 +663,7 @@
       resetPasswordModal.show();
     }
 
-    async function resetUserPassword(user) {
+    async function resetUserPassword(user, button) {
       if (!user || !user.id) {
         showAlert('This user does not have a UUID available for password reset.', false);
         return;
@@ -656,8 +673,31 @@
         showAlert('You cannot reset your own password from this screen.', false);
         return;
       }
+      console.log('Attempting to reset password for user:', user);
+      if (!user?.email) {
+        showAlert('No user selected for password reset.', false);
+        return;
+      }
+      button.disabled = true;
+      button.textContent = 'Sending reset link…';
 
-      openResetPasswordModal(user);
+      try {
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(
+          user.email,
+          {
+            redirectTo: 'https://idoarborshoa.github.io/bookingpage/' // window.location.origin + '/index.html',
+          }
+        );
+
+        if (error) throw error;
+
+        showAlert(`Password reset link sent to ${user.email}!`, true);
+      } catch (err) {
+        showAlert(`Could not send reset email: ${err.message}`, false);
+      } finally {
+        //button.disabled = false; //keep button disabled to prevent multiple clicks
+        button.textContent = 'Send Reset Link';
+      }
     }
 
     async function deleteAdminUser(user) {
@@ -1181,7 +1221,7 @@
       const user = adminUsersCache.find(item => item.id === userId);
       if (!user) return;
       if (action === 'reset') {
-        await resetUserPassword(user);
+        await resetUserPassword(user,button);
       } else if (action === 'delete') {
         await deleteAdminUser(user);
       }
@@ -1193,37 +1233,34 @@
 
     document.getElementById('resetPasswordForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const newPassword = document.getElementById('resetPasswordNew').value;
-      const confirmPassword = document.getElementById('resetPasswordConfirm').value;
       const submitBtn = e.submitter || document.querySelector('#resetPasswordForm button[type="submit"]');
 
-      if (newPassword !== confirmPassword) {
-        showAlert('Passwords do not match.', false);
-        return;
-      }
-
-      if (!pendingPasswordResetUser?.id) {
+      if (!pendingPasswordResetUser?.email) {
         showAlert('No user selected for password reset.', false);
         return;
       }
 
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Saving…';
+      submitBtn.textContent = 'Sending Email…';
 
       try {
-        const { error } = await supabaseClient.rpc('admin_change_user_password', {
-          p_user_uuid: pendingPasswordResetUser.id,
-          p_newpassword: newPassword
-        });
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(
+          pendingPasswordResetUser.email,
+          {
+            // Address where the resident will be redirected to set their new password
+            redirectTo: 'https://idoarborshoa.github.io/bookingpage/' // window.location.origin + '/index.html',
+          }
+        );
 
         if (error) throw error;
-        showAlert('Password updated successfully.', true);
+
+        showAlert(`Password reset link sent to ${pendingPasswordResetUser.email}!`, true);
         resetPasswordModal.hide();
       } catch (err) {
-        showAlert(`Could not update password: ${err.message}`, false);
+        showAlert(`Could not send reset email: ${err.message}`, false);
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Save Password';
+        submitBtn.textContent = 'Send Reset Link';
       }
     });
 
