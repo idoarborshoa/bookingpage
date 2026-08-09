@@ -7,6 +7,26 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+  <script>
+    let g_isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const g_htmlElement = document.documentElement;
+            const myThemeStorageName = 'myTheme';
+            if (localStorage.getItem(myThemeStorageName) != null && localStorage.getItem(myThemeStorageName) != undefined){
+                if (localStorage.getItem(myThemeStorageName) === 'dark'){
+                    g_htmlElement.setAttribute('data-bs-theme', 'dark');
+                    g_isDarkMode = true;
+                } else {
+                    g_htmlElement.setAttribute('data-bs-theme', 'light');
+                    g_isDarkMode = false;
+                }
+            }
+            if (g_isDarkMode) {
+                g_htmlElement.setAttribute('data-bs-theme', 'dark');
+            } else {
+                g_htmlElement.setAttribute('data-bs-theme', 'light');
+            }
+            g_htmlElement.setAttribute('data-bs-theme', 'light');
+  </script>
   <style>
     html, body { height: 100%; margin: 0; overflow: hidden; }
     #mainLayout { height: calc(100vh - 52px); display: flex; }
@@ -34,6 +54,23 @@
     .admin-panel { display: none; }
     .admin-panel.active { display: block; }
 
+    .my-alert-class {
+    position: fixed;
+    top: 64px;
+    right: 0px;
+    width: auto;
+    font-family: var(--font-fbtubic-sans-eng-light);
+    z-index: 9999;
+}
+@media (max-width: 1024px) { /* or 992px, or 1024px, etc. */
+  .my-alert-class{
+    font-size: 10px;
+    bottom:64px;
+    top: unset;
+  }
+}
+
+
     @media (max-width: 767px) {
       html, body { overflow: auto; height: auto; min-height: 100%; }
       #mainLayout { height: auto; min-height: calc(100vh - 52px); flex-direction: column; }
@@ -57,8 +94,8 @@
     }
   </style>
 </head>
-<body class="bg-light">
-
+<body>
+  <div id="alertplaceholder" class="my-alert-class"></div>
   <nav class="navbar navbar-dark bg-primary py-1">
     <div class="container-fluid">
       <span class="navbar-brand mb-0 h1 fs-5">Arbors HOA Amenity Booking</span>
@@ -85,12 +122,12 @@
             <div class="mb-2">
               <label class="form-label small mb-1">Email</label>
               <input type="email" id="loginEmail" class="form-control form-control-sm"
-                placeholder="name@domain.com" required>
+                placeholder="name@domain.com" required value="ido.arbors.hoa@gmail.com">
             </div>
             <div class="mb-2">
               <label class="form-label small mb-1">Password</label>
               <input type="password" id="loginPassword" class="form-control form-control-sm"
-                required>
+                required value="MAR1b0r!">
             </div>
             <button type="submit" class="btn btn-primary btn-sm w-100">Sign In</button>
           </form>
@@ -373,6 +410,25 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zZ21wbWtxaXd1aXhxbnR0bGxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDc4MTQsImV4cCI6MjEwMTY4MzgxNH0.Uvz672RY9HtQIsfFLptm3YqXl8ICHbDUgFM_NYrskWw';
     const supabaseClient   = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    // Triggers when user clicks the invite link or recovery link
+    if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+      // Check if user came from an invite or recovery flow
+      if (window.location.hash.includes('type=invite') || window.location.hash.includes('type=recovery')) {
+        const newPassword = prompt('Welcome! Please enter your new password:');
+        
+        if (newPassword) {
+          const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+          if (!error) {
+            alert('Password saved successfully! Welcome to the portal.');
+          } else {
+            alert('Failed to set password: ' + error.message);
+          }
+        }
+      }
+    }
+  });
+
     const COLORS = ['#0d6efd','#6f42c1','#d63384','#fd7e14','#20c997','#0dcaf0','#6c757d','#dc3545'];
     const SAMPLE_SCHEDULE_JSON = JSON.stringify({
       monday: [{ start: '09:00', end: '12:00' }, { start: '14:00', end: '18:00' }],
@@ -451,13 +507,39 @@
       initCalendar();
     }
 
-    function showAlert(msg, isSuccess) {
+    /*function showAlert_OLD(msg, isSuccess) {
       const box = document.getElementById('alertBox');
       box.className = `alert py-2 ${isSuccess ? 'alert-success' : 'alert-danger'}`;
       box.textContent = msg;
       box.classList.remove('d-none');
       setTimeout(() => box.classList.add('d-none'), 8000);
+    }*/
+    function showAlert(message, isSuccess, autoHideTimeout = 5000) {
+    /*
+        'primary
+        'secondary
+        'success
+        'danger
+        'warning
+        'info
+        'light
+        'dark
+    */
+    const type = isSuccess ? 'success' : 'danger';
+    const alertDiv = document.createElement('div');
+    alertDiv.classList.add("alert");
+    alertDiv.classList.add("alert-" + type);
+    alertDiv.classList.add("alert-dismissible");
+    alertDiv.classList.add("show");
+    alertDiv.classList.add("in");
+    alertDiv.classList.add("fade");
+    alertDiv.innerHTML = '<div>' + message + '</div><button type="button" class="btn btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>';
+    document.getElementById("alertplaceholder").appendChild(alertDiv);
+    if (autoHideTimeout > 1) {
+        new bootstrap.Alert(alertDiv);
+        setTimeout(() => { bootstrap.Alert.getInstance(alertDiv).close(); }, +autoHideTimeout);
     }
+}
 
     function setActiveView(view) {
       currentView = view;
@@ -1143,10 +1225,6 @@
       const password = document.getElementById('newUserPassword').value;
       const { data: { session } } = await supabaseClient.auth.getSession();
 
-if (!session) {
-  alert('You must be logged in to create users!');
-  return;
-}
       const createBtn = e.submitter || document.querySelector('#addUserForm button[type="submit"]');
       createBtn.disabled = true;
       createBtn.textContent = 'Creating…';
@@ -1161,11 +1239,10 @@ if (!session) {
         });
 
         */
-       
+
 const { data, error } = await supabaseClient.functions.invoke('admin-create-user', {
   body: {
     email: email,
-    password: password,
     name: name,
     is_superadmin: false
   }
@@ -1173,17 +1250,17 @@ const { data, error } = await supabaseClient.functions.invoke('admin-create-user
 
   if (error) {
     alert('Failed to create user: ' + error.message);
-  } else {
-    alert('User created successfully: ' + data.user.email);
   }
 
 
         if (error) throw error;
         showAlert(`User created successfully. UUID: ${data || 'n/a'}`, true);
         // Trigger Supabase to send a password reset / set password email automatically
+        /*
         await supabaseClient.auth.resetPasswordForEmail(email, {
           redirectTo: 'https://your-hoa-site.com/reset-password.html'
         });
+        */
         adminUserModal.hide();
         document.getElementById('addUserForm').reset();
         await loadAdminData();
