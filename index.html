@@ -9,25 +9,30 @@
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
   <script>
     let g_isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const g_htmlElement = document.documentElement;
-            const myThemeStorageName = 'myTheme';
-            if (localStorage.getItem(myThemeStorageName) != null && localStorage.getItem(myThemeStorageName) != undefined){
-                if (localStorage.getItem(myThemeStorageName) === 'dark'){
-                    g_htmlElement.setAttribute('data-bs-theme', 'dark');
-                    g_isDarkMode = true;
-                } else {
-                    g_htmlElement.setAttribute('data-bs-theme', 'light');
-                    g_isDarkMode = false;
-                }
-            }
-            if (g_isDarkMode) {
-                g_htmlElement.setAttribute('data-bs-theme', 'dark');
-            } else {
-                g_htmlElement.setAttribute('data-bs-theme', 'light');
-            }
+    const g_htmlElement = document.documentElement;
+    const myThemeStorageName = 'myTheme';
+    if (localStorage.getItem(myThemeStorageName) != null && localStorage.getItem(myThemeStorageName) != undefined){
+        if (localStorage.getItem(myThemeStorageName) === 'dark'){
+            g_htmlElement.setAttribute('data-bs-theme', 'dark');
+            g_isDarkMode = true;
+        } else {
             g_htmlElement.setAttribute('data-bs-theme', 'light');
+            g_isDarkMode = false;
+        }
+    }
+    if (g_isDarkMode) {
+        g_htmlElement.setAttribute('data-bs-theme', 'dark');
+    } else {
+        g_htmlElement.setAttribute('data-bs-theme', 'light');
+    }
+    //g_htmlElement.setAttribute('data-bs-theme', 'light');
   </script>
   <style>
+    :root {
+      --hoa-primary: #217225;
+      --hoa-on-primary: #ffffff;
+    }
+
     html, body { height: 100%; margin: 0; overflow: hidden; }
     #mainLayout { height: calc(100vh - 52px); display: flex; }
     #sidebar {
@@ -35,8 +40,7 @@
       min-width: 320px;
       height: 100%;
       overflow-y: auto;
-      background: #fff;
-      border-right: 1px solid #dee2e6;
+      border-right: 1px solid var(--bs-border-color);
       padding: 1rem;
     }
     #calendarArea { flex: 1; padding: 1rem; overflow: hidden; display: flex; flex-direction: column; }
@@ -53,6 +57,14 @@
     .tab-btn.active { background-color: #0d6efd; color: #fff; }
     .admin-panel { display: none; }
     .admin-panel.active { display: block; }
+
+    .hoa-navbar {
+      background: var(--hoa-primary);
+    }
+    .hoa-navbar .navbar-brand,
+    .hoa-navbar #authStatus {
+      color: var(--hoa-on-primary) !important;
+    }
 
     .my-alert-class {
     position: fixed;
@@ -87,6 +99,37 @@
         min-height: 70vh;
       }
       #calendar { min-height: 60vh; }
+
+      /* Keep mobile controls compact and hide oversized FullCalendar chrome. */
+      #calendarToolbar {
+        gap: 0.35rem;
+        margin-bottom: 0.5rem !important;
+      }
+      #calendarToolbar label {
+        display: none;
+      }
+      #calendarDatePicker {
+        max-width: 132px !important;
+        font-size: 0.8rem;
+        padding: 0.18rem 0.4rem;
+      }
+      #calendarViewSelect {
+        max-width: 110px !important;
+        font-size: 0.8rem;
+        padding: 0.18rem 1.35rem 0.18rem 0.4rem;
+      }
+
+      .fc .fc-toolbar {
+        display: flex;
+      }
+      .fc .fc-toolbar-title { font-size: 0.95rem; }
+.fc .fc-button { font-size: 0.72rem; padding: 0.2rem 0.35rem; }
+      .fc .fc-list,
+      .fc .fc-daygrid,
+      .fc .fc-timegrid {
+        font-size: 0.82rem;
+      }
+
       #legendSection { display: none !important; }
       #bookingSection { order: -1; }
       #loginSection { order: 0; }
@@ -96,14 +139,17 @@
 </head>
 <body>
   <div id="alertplaceholder" class="my-alert-class"></div>
-  <nav class="navbar navbar-dark bg-primary py-1">
+  <nav class="navbar navbar-dark hoa-navbar py-1">
     <div class="container-fluid">
-      <span class="navbar-brand mb-0 h1 fs-5">Arbors HOA Amenity Booking</span>
+      <div class="d-flex align-items-center gap-2">
+        <span class="navbar-brand mb-0 h1 fs-5">Arbors HOA Amenity Booking</span>
+        <button id="themeToggleBtn" type="button" class="btn btn-outline-dark btn-sm py-0 px-2" aria-label="Switch theme">&#127769;</button>
+      </div>
       <div class="d-flex align-items-center gap-2">
         <div id="authStatus" class="text-white small">Not logged in</div>
         <div class="d-flex align-items-center gap-2">
-          <button id="changePasswordBtn" class="btn btn-outline-light btn-sm py-0 px-2 d-none">Change Password</button>
-          <button id="logoutBtn" class="btn btn-outline-danger btn-sm py-0 px-2 d-none">Log Out</button>
+          <button id="changePasswordBtn" class="btn btn-secondary py-0 px-2 d-none" title="Change password">&#128273;</button>
+          <button id="logoutBtn" class="btn btn-danger py-0 px-2 d-none" title="Logout from system">&#9211;</button>
         </div>
       </div>
     </div>
@@ -116,7 +162,7 @@
 
       <!-- Login Card -->
       <div id="loginSection" class="card shadow-sm mb-3">
-        <div class="card-header bg-white py-2"><h6 class="mb-0">Resident Login</h6></div>
+        <div class="card-header py-2"><h6 class="mb-0">Resident Login</h6></div>
         <div class="card-body py-2">
           <form id="loginForm">
             <div class="mb-2">
@@ -143,7 +189,7 @@
 
       <!-- Booking Card (shown after login) -->
       <div id="bookingSection" class="card shadow-sm mb-3 d-none">
-        <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
           <h6 class="mb-0">Book Facility</h6>
         </div>
         <div class="card-body py-2">
@@ -256,7 +302,7 @@
       </div>
 
       <div id="bookingView" class="h-100">
-        <div id="calendarToolbar" class="d-flex align-items-center gap-2 mb-2">
+        <div id="calendarToolbar" class="d-none align-items-center gap-2 mb-2">
           <label class="small text-muted mb-0">Date</label>
           <input type="date" id="calendarDatePicker" class="form-control form-control-sm" style="max-width: 170px;">
           <select id="calendarViewSelect" class="form-select form-select-sm" style="max-width: 140px;">
@@ -271,9 +317,9 @@
 
       <div id="adminView" class="admin-panel h-100 overflow-auto d-none">
         <div class="card shadow-sm h-100">
-          <div class="card-header bg-white d-flex align-items-center justify-content-between">
+          <div class="card-header d-flex align-items-center justify-content-between">
             <h6 class="mb-0">User Management</h6>
-            <button type="button" id="openAddUserModalBtn" class="btn btn-outline-primary btn-sm" title="Add user">＋</button>
+            <button type="button" id="openAddUserModalBtn" class="btn btn-primary btn-sm" title="Add user">＋</button>
           </div>
           <div class="card-body">
             <div class="mb-3">
@@ -336,41 +382,10 @@
               <label class="form-label small mb-1">Name</label>
               <input type="text" id="newUserName" class="form-control form-control-sm" required>
             </div>
-            <div class="mb-2">
-              <label class="form-label small mb-1">Password</label>
-              <input type="password" id="newUserPassword" class="form-control form-control-sm" required>
-            </div>
           </div>
           <div class="modal-footer py-2">
             <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
             <button type="submit" class="btn btn-primary btn-sm">Create User</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal fade" id="resetPasswordModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header py-2">
-          <h6 class="modal-title">Reset Password</h6>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <form id="resetPasswordForm">
-          <div class="modal-body py-2">
-            <div class="mb-2">
-              <label class="form-label small mb-1">New Password</label>
-              <input type="password" id="resetPasswordNew" class="form-control form-control-sm" required>
-            </div>
-            <div class="mb-2">
-              <label class="form-label small mb-1">Confirm Password</label>
-              <input type="password" id="resetPasswordConfirm" class="form-control form-control-sm" required>
-            </div>
-          </div>
-          <div class="modal-footer py-2">
-            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary btn-sm">Save Password</button>
           </div>
         </form>
       </div>
@@ -409,7 +424,14 @@
     const SUPABASE_URL     = 'https://osgmpmkqiwuixqnttllc.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zZ21wbWtxaXd1aXhxbnR0bGxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDc4MTQsImV4cCI6MjEwMTY4MzgxNH0.Uvz672RY9HtQIsfFLptm3YqXl8ICHbDUgFM_NYrskWw';
     const supabaseClient   = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+    const alertType = Object.freeze({
+      primary: 'primary',
+      secondary: 'secondary',
+      success: 'success',
+      danger: 'danger',
+      warning: 'warning',
+      info: 'info'
+    });
     const hash = window.location.hash;
     const isInviteOrRecovery = hash.includes('type=invite') || hash.includes('type=recovery');
     analyzeHashParams();
@@ -427,11 +449,11 @@
             const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
 
             if (!error) {
-              showAlert('Password saved successfully! Welcome to the portal.', true);
+              showAlert('Password saved successfully! Welcome to the portal.', alertType.success);
               // Clean the URL by redirecting to pure pathname
               window.location.href = window.location.origin + window.location.pathname;
             } else {
-              showAlert('Failed to set password: ' + error.message, false);
+              showAlert('Failed to set password: ' + error.message, alertType.danger);
             }
           }
         }
@@ -476,7 +498,7 @@
         error_description: params.get('error_description')
       };
       if (result.error) {
-        showAlert(`Authentication error: ${result.error} - ${result.error_code} - ${result.error_description}`, false);
+        showAlert(`Authentication error: ${result.error} - ${result.error_code} - ${result.error_description}`, alertType.danger);
       }
     }
 
@@ -494,6 +516,8 @@
       document.getElementById('viewSwitcher').classList.add('d-none');
       document.getElementById('adminView').classList.add('d-none');
       document.getElementById('bookingView').classList.remove('d-none');
+      document.getElementById('calendarToolbar').classList.add('d-none');
+      document.getElementById('calendarToolbar').classList.remove('d-flex');
       currentUser = null;
       isSuperAdmin = false;
       currentView = 'booking';
@@ -517,6 +541,7 @@
     async function showBookingUI(user) {
       currentUser = user;
       isSuperAdmin = await checkSuperAdminStatus(user.id);
+      document.getElementById('bookingDate').value = getTomorrowDateString();
       document.getElementById('loginSection').classList.add('d-none');
       document.getElementById('authStatus').textContent = `Logged in: ${user.email}${isSuperAdmin ? ' • Super admin' : ''}`;
       document.getElementById('changePasswordBtn').classList.remove('d-none');
@@ -526,6 +551,8 @@
       document.getElementById('legendSection').classList.remove('d-none');
       document.getElementById('calendarPlaceholder').classList.add('d-none');
       document.getElementById('calendar').classList.remove('d-none');
+      document.getElementById('calendarToolbar').classList.remove('d-none');
+      document.getElementById('calendarToolbar').classList.add('d-flex');
       setActiveView('booking');
       if (isSuperAdmin) {
         await loadAdminData();
@@ -533,14 +560,7 @@
       initCalendar();
     }
 
-    /*function showAlert_OLD(msg, isSuccess) {
-      const box = document.getElementById('alertBox');
-      box.className = `alert py-2 ${isSuccess ? 'alert-success' : 'alert-danger'}`;
-      box.textContent = msg;
-      box.classList.remove('d-none');
-      setTimeout(() => box.classList.add('d-none'), 8000);
-    }*/
-    function showAlert(message, isSuccess, autoHideTimeout = 5000) {
+    function showAlert(message, type, autoHideTimeout = 5000) {
     /*
         'primary
         'secondary
@@ -551,7 +571,7 @@
         'light
         'dark
     */
-    const type = isSuccess ? 'success' : 'danger';
+    
     const alertDiv = document.createElement('div');
     alertDiv.classList.add("alert");
     alertDiv.classList.add("alert-" + type);
@@ -637,8 +657,8 @@
             <td>${escapeHtml(user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—')}</td>
             <td>
               <div class="btn-group btn-group-sm">
-                <button class="btn btn-outline-secondary" type="button" data-action="reset" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''}>Reset password</button>
-                <button class="btn btn-outline-danger" type="button" data-action="delete" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''}>Delete</button>
+                <button class="btn btn-secondary" type="button" data-action="reset" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''} title="Reset password for ${escapeHtml(user.name || user.email || '')}">&#128273;</button>
+                <button class="btn btn-danger" type="button" data-action="delete" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''} title="Delete the user ${escapeHtml(user.name || user.email || '')}">&#128465;</button>
               </div>
             </td>
           </tr>
@@ -647,35 +667,19 @@
       status.textContent = `${filteredUsers.length} user${filteredUsers.length === 1 ? '' : 's'} shown.`;
     }
 
-    function openResetPasswordModal(user) {
-      if (!user || !user.id) {
-        showAlert('This user does not have a UUID available for password reset.', false);
-        return;
-      }
-
-      if (currentUser && user.id === currentUser.id) {
-        showAlert('You cannot reset your own password from this screen.', false);
-        return;
-      }
-
-      pendingPasswordResetUser = user;
-      document.getElementById('resetPasswordForm').reset();
-      resetPasswordModal.show();
-    }
-
     async function resetUserPassword(user, button) {
       if (!user || !user.id) {
-        showAlert('This user does not have a UUID available for password reset.', false);
+        showAlert('This user does not have a UUID available for password reset.', alertType.danger);
         return;
       }
 
       if (currentUser && user.id === currentUser.id) {
-        showAlert('You cannot reset your own password from this screen.', false);
+        showAlert('You cannot reset your own password from this screen.', alertType.danger);
         return;
       }
       console.log('Attempting to reset password for user:', user);
       if (!user?.email) {
-        showAlert('No user selected for password reset.', false);
+        showAlert('No user selected for password reset.', alertType.danger);
         return;
       }
       button.disabled = true;
@@ -691,24 +695,24 @@
 
         if (error) throw error;
 
-        showAlert(`Password reset link sent to ${user.email}!`, true);
+        showAlert(`Password reset link sent to ${user.email}!`, alertType.success);
       } catch (err) {
-        showAlert(`Could not send reset email: ${err.message}`, false);
+        showAlert(`Could not send reset email: ${err.message}`, alertType.danger);
       } finally {
         //button.disabled = false; //keep button disabled to prevent multiple clicks
-        button.textContent = 'Send Reset Link';
+        button.textContent = 'Reset link sent';
       }
     }
 
     async function deleteAdminUser(user) {
       const userId = user.id;
       if (!userId) {
-        showAlert('This user does not have a UUID available for deletion.', false);
+        showAlert('This user does not have a UUID available for deletion.', alertType.danger);
         return;
       }
 
       if (currentUser && user.id === currentUser.id) {
-        showAlert('You cannot delete your own account from this screen.', false);
+        showAlert('You cannot delete your own account from this screen.', alertType.danger);
         return;
       }
 
@@ -727,7 +731,7 @@
         try {
           const { error } = await attempt();
           if (!error) {
-            showAlert('User deleted successfully.', true);
+            showAlert('User deleted successfully.', alertType.success);
             await loadAdminData();
             return;
           }
@@ -737,7 +741,7 @@
         }
       }
 
-      showAlert(`Could not delete user: ${lastError?.message || 'Unknown error'}`, false);
+      showAlert(`Could not delete user: ${lastError?.message || 'Unknown error'}`, alertType.danger);
     }
 
     async function loadAdminData() {
@@ -800,7 +804,7 @@
       const submitBtn = e.submitter || document.querySelector('#changePasswordForm button[type="submit"]');
 
       if (newPassword !== confirmPassword) {
-        showAlert('Passwords do not match.', false);
+        showAlert('Passwords do not match.', alertType.danger);
         return;
       }
 
@@ -813,10 +817,10 @@
 
       if (error) {
         console.error('Password update failed:', error.message);
-        showAlert(`Password update failed: ${error.message}`, false);
+        showAlert(`Password update failed: ${error.message}`, alertType.danger);
       } else {
         console.log('Password updated successfully!');
-        showAlert('Password updated successfully!', true);
+        showAlert('Password updated successfully!', alertType.success);
         changePasswordModal.hide();
       }
 
@@ -1076,7 +1080,7 @@
     async function fetchBookings() {
       const { data, error } = await supabaseClient
         .from('bookings')
-        .select('booking_id, amenity_id, booked_time, user_id, amenities(name)');
+        .select('booking_id, amenity_id, booked_time, user_id, amenities(name),end_time');
 
       if (error) { console.error('Bookings fetch error:', error); return []; }
 
@@ -1086,7 +1090,7 @@
         const amenityName = (b.amenities && b.amenities.name) || info.name || 'Booking';
         const isMine      = currentUser && b.user_id === currentUser.id;
         const start       = new Date(b.booked_time);
-        const end         = new Date(start.getTime() + 60 * 60 * 1000); // 1-hour default duration
+        const end         = new Date(b.end_time);
 
         return {
           id: b.booking_id,
@@ -1096,7 +1100,7 @@
           borderColor: isMine ? '#198754' : color,
           textColor: '#fff',
           classNames: isMine ? ['my-booking'] : [],
-          extendedProps: { amenityName, bookedTime: b.booked_time, isMine }
+          extendedProps: { amenityName, bookedTime: b.booked_time, endTime: b.end_time, isMine }
         };
       });
     }
@@ -1131,20 +1135,29 @@
         datesSet: syncCalendarControls,
         viewDidMount: syncCalendarControls,
         eventClick(info) {
-          const { amenityName, bookedTime, isMine } = info.event.extendedProps;
+          const { amenityName, bookedTime, endTime, isMine } = info.event.extendedProps;
           const dt      = new Date(bookedTime);
           const dateStr = dt.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
           const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
+          const et = new Date(endTime);
+          const endTimeStr = et.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
           document.getElementById('modalTitle').textContent = amenityName;
           document.getElementById('modalBody').innerHTML = `
+            ${isMine ? '<div class="mt-2"><span class="badge bg-success">My Booking</span></div>' : '<div class="mt-2"><span class="badge bg-secondary">Not my booking</span></div>'}
             <p class="mb-1"><strong>Date:</strong> ${dateStr}</p>
-            <p class="mb-0"><strong>Time:</strong> ${timeStr}</p>
-            ${isMine ? '<div class="mt-2"><span class="badge bg-success">Your Booking</span></div>' : ''}
+            <p class="mb-0"><strong>Start Time:</strong> ${timeStr}</p>
+            <p class="mb-0"><strong>End Time:</strong> ${endTimeStr}</p>
           `;
 
+          if (dt < new Date()) {
+            
+          }
+          const allowCancel = (isMine || isSuperAdmin) && dt > new Date();
+
           const cancelBtn = document.getElementById('cancelBookingBtn');
-          if (isMine) {
+          if (allowCancel) {
             cancelBtn.classList.remove('d-none');
             activeEventId = info.event.id;
           } else {
@@ -1198,11 +1211,11 @@
       console.log('Cancel booking result:', error);
 
       if (error) {
-        alert('Could not cancel booking: ' + error.message);
+        showAlert('Could not cancel booking: ' + error.message, alertType.danger);
       } else {
         bookingModal.hide();
         calendar.refetchEvents();
-        showAlert('Booking cancelled successfully.', true);
+        showAlert('Booking cancelled successfully.', alertType.success);
       }
     });
 
@@ -1231,39 +1244,6 @@
       adminUserModal.show();
     });
 
-    document.getElementById('resetPasswordForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const submitBtn = e.submitter || document.querySelector('#resetPasswordForm button[type="submit"]');
-
-      if (!pendingPasswordResetUser?.email) {
-        showAlert('No user selected for password reset.', false);
-        return;
-      }
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Sending Email…';
-
-      try {
-        const { error } = await supabaseClient.auth.resetPasswordForEmail(
-          pendingPasswordResetUser.email,
-          {
-            // Address where the resident will be redirected to set their new password
-            redirectTo: 'https://idoarborshoa.github.io/bookingpage/' // window.location.origin + '/index.html',
-          }
-        );
-
-        if (error) throw error;
-
-        showAlert(`Password reset link sent to ${pendingPasswordResetUser.email}!`, true);
-        resetPasswordModal.hide();
-      } catch (err) {
-        showAlert(`Could not send reset email: ${err.message}`, false);
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Send Reset Link';
-      }
-    });
-
     document.getElementById('addUserForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('newUserEmail').value.trim();
@@ -1276,43 +1256,27 @@
       createBtn.textContent = 'Creating…';
 
       try {
-        /*
-        const { data, error } = await supabaseClient.rpc('admin_create_user', {
-          p_email: email,
-          p_password: password,
-          p_name: name,
-          p_is_superadmin: false
+        const { data, error } = await supabaseClient.functions.invoke('admin-create-user', {
+          body: {
+            email: email,
+            name: name,
+            is_superadmin: false,
+            redirectTo: 'https://idoarborshoa.github.io/bookingpage/' // window.location.origin + '/index.html'
+          }
         });
 
-        */
-
-const { data, error } = await supabaseClient.functions.invoke('admin-create-user', {
-  body: {
-    email: email,
-    name: name,
-    is_superadmin: false,
-    redirectTo: 'https://idoarborshoa.github.io/bookingpage/' // window.location.origin + '/index.html'
-  }
-});
-
-  if (error) {
-    alert('Failed to create user: ' + error.message);
-  }
+          if (error) {
+            showAlert('Failed to create user: ' + error.message, alertType.danger);
+          }
 
 
         if (error) throw error;
-        showAlert(`User created successfully. UUID: ${data || 'n/a'}`, true);
-        // Trigger Supabase to send a password reset / set password email automatically
-        /*
-        await supabaseClient.auth.resetPasswordForEmail(email, {
-          redirectTo: 'https://your-hoa-site.com/reset-password.html'
-        });
-        */
+        showAlert(`User created successfully. UUID: ${data || 'n/a'}`, alertType.success);
         adminUserModal.hide();
         document.getElementById('addUserForm').reset();
         await loadAdminData();
       } catch (err) {
-        showAlert(`Could not create user: ${err.message}`, false);
+        showAlert(`Could not create user: ${err.message}`, alertType.danger);
       } finally {
         createBtn.disabled = false;
         createBtn.textContent = 'Create User';
@@ -1329,9 +1293,8 @@ const { data, error } = await supabaseClient.functions.invoke('admin-create-user
       const selectedOption = document.getElementById('amenitySelect').selectedOptions[0];
       const scheduleValue = selectedOption ? selectedOption.dataset.schedule : SAMPLE_SCHEDULE_JSON;
       const validation = validateBookingTime(new Date(`${date}T12:00:00`), time, durationMinutes, scheduleValue);
-      console.log('scheduleValue:', scheduleValue, 'validation:', validation);
       if (!validation.isValid) {
-        showAlert(validation.message, false);
+        showAlert(validation.message, alertType.danger);
         return;
       }
 
@@ -1343,19 +1306,46 @@ const { data, error } = await supabaseClient.functions.invoke('admin-create-user
 
       const { data: bookingId, error } = await supabaseClient.rpc('book_amenity', {
         p_amenity_id:  amenityId,
-        p_booked_time: isoTimestamp
+        p_booked_time: isoTimestamp,
+        p_end_time: new Date(new Date(`${date}T${time}:00`).getTime() + durationMinutes * 60000).toISOString()
       });
+      if (error) {
+        console.log('Error Code:', error.code);
+  console.log('Error Message:', error.message);
+      }
+      
 
-      showAlert(error ? error.message : `Booking confirmed! ID: ${bookingId}`, !error);
+      showAlert(error ? error.message : `Booking confirmed!`, error ? alertType.danger : alertType.success);
       bookBtn.disabled = false;
       bookBtn.textContent = 'Reserve Slot';
       if (!error && calendar) calendar.refetchEvents();
     });
 
+    function updateThemeToggleLabel() {
+      const btn = document.getElementById('themeToggleBtn');
+      if (!btn) return;
+      btn.innerHTML = g_isDarkMode ? '&#9728;' : '&#127769;';
+      if (g_isDarkMode) {
+        btn.classList.add('btn-outline-light');
+        btn.classList.remove('btn-outline-dark');
+      } else {
+        btn.classList.add('btn-outline-dark');
+        btn.classList.remove('btn-outline-light');
+      }
+    }
+
+    document.getElementById('themeToggleBtn').addEventListener('click', () => {
+      g_htmlElement.setAttribute('data-bs-theme', g_isDarkMode ? 'light' : 'dark');
+      localStorage.setItem(myThemeStorageName, g_isDarkMode ? 'light' : 'dark');
+      g_isDarkMode = !g_isDarkMode;
+      updateThemeToggleLabel();
+    });
+
     adminUserModal = new bootstrap.Modal(document.getElementById('addUserModal'));
-    resetPasswordModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+    //resetPasswordModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
     changePasswordModal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
     document.getElementById('bookingDate').value = getTomorrowDateString();
+    updateThemeToggleLabel();
     refreshBookingAvailability();
     checkUserSession();
   </script>
