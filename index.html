@@ -671,7 +671,10 @@
             <td>
               <div class="btn-group btn-group-sm">
                 <button class="btn btn-secondary" type="button" data-action="reset" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''} title="Reset password for ${escapeHtml(user.name || user.email || '')}">&#128273;</button>
-                <button class="btn btn-danger" type="button" data-action="delete" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''} title="Delete the user ${escapeHtml(user.name || user.email || '')}">&#128465;</button>
+                ${user.isBanned
+                  ? `<button class="btn btn-primary" type="button" data-action="enable" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''} title="Enable the user ${escapeHtml(user.name || user.email || '')}">&#10004;</button>`
+                  : `<button class="btn btn-danger" type="button" data-action="disable" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''} title="Disable the user ${escapeHtml(user.name || user.email || '')}">&#128465;</button>`
+                }
               </div>
             </td>
           </tr>
@@ -717,7 +720,61 @@
       }
     }
 
-    async function deleteAdminUser(user) {
+    async function disableUser_AdminsOnly(user) {
+      const userId = user.id;
+      if (!userId) {
+        showAlert('This user does not have a UUID available for deletion.', alertType.danger);
+        return;
+      }
+
+      if (currentUser && user.id === currentUser.id) {
+        showAlert('You cannot delete your own account from this screen.', alertType.danger);
+        return;
+      }
+
+      if (!window.confirm(`Delete ${user.name || user.email || 'this user'}?`)) return;
+
+      try {
+        const { data, error } = await supabaseClient.functions.invoke('admin-ban-user', {
+          body: { user_id: user.id }
+        });
+        if (error) throw error;
+
+        showAlert('User disabled successfully.', alertType.success);
+        await loadAdminData();
+      } catch (err) {
+        showAlert(`Could not disable user: ${err.message}`, alertType.danger);
+      }
+    }
+
+    async function enableUser_AdminsOnly(user) {
+      const userId = user.id;
+      if (!userId) {
+        showAlert('This user does not have a UUID available for enabling.', alertType.danger);
+        return;
+      }
+
+      if (currentUser && user.id === currentUser.id) {
+        showAlert('You cannot enable your own account from this screen.', alertType.danger);
+        return;
+      }
+
+      if (!window.confirm(`Enable ${user.name || user.email || 'this user'}?`)) return;
+
+      try {
+        const { data, error } = await supabaseClient.functions.invoke('admin-unban-user', {
+          body: { user_id: user.id }
+        });
+        if (error) throw error;
+
+        showAlert('User enabled successfully.', alertType.success);
+        await loadAdminData();
+      } catch (err) {
+        showAlert(`Could not enable user: ${err.message}`, alertType.danger);
+      }
+    }
+
+    async function deleteAdminUser_OLD(user) {
       const userId = user.id;
       if (!userId) {
         showAlert('This user does not have a UUID available for deletion.', alertType.danger);
@@ -738,18 +795,6 @@
           ? supabaseClient.auth.admin.deleteUser(userId)
           : Promise.reject(new Error('Delete API unavailable'))
       ];
-
-      /* - TODO: need to properly ban users and not delete them
-      // To Ban a User:
-const { data, error } = await supabaseClient.functions.invoke('admin-ban-user', {
-  body: { user_id: 'TARGET_USER_UUID' }
-});
-
-// To Unban a User:
-const { data, error } = await supabaseClient.functions.invoke('admin-unban-user', {
-  body: { user_id: 'TARGET_USER_UUID' }
-});
-*/
 
       let lastError = null;
       for (const attempt of attempts) {
@@ -1263,6 +1308,7 @@ const { data, error } = await supabaseClient.functions.invoke('admin-unban-user'
         await resetUserPassword(user,button);
       } else if (action === 'delete') {
         await deleteAdminUser(user);
+        //TODO: options enable / disable user instead of delete
       }
     });
 
