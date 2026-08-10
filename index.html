@@ -140,7 +140,7 @@
         gap: 0.35rem;
         margin-bottom: 0.5rem !important;
       }
-      #calendarToolbar label {
+      #calendarToolbar .toolbar-date-label {
         display: none;
       }
       #calendarDatePicker {
@@ -149,7 +149,6 @@
         padding: 0.18rem 0.4rem;
       }
       #calendarViewSelect {
-        max-width: 110px !important;
         font-size: 0.8rem;
         padding: 0.18rem 1.35rem 0.18rem 0.4rem;
       }
@@ -342,14 +341,18 @@
 
       <div id="bookingView" class="h-100">
         <div id="calendarToolbar" class="d-none align-items-center gap-2 mb-2">
-          <label class="small text-muted mb-0">Date</label>
+          <label class="toolbar-date-label small text-muted mb-0">Date</label>
           <input type="date" id="calendarDatePicker" class="form-control form-control-sm" style="max-width: 170px;">
-          <select id="calendarViewSelect" class="form-select form-select-sm" style="max-width: 140px;">
-            <option value="listWeek">Agenda</option>
+          <select id="calendarViewSelect" class="form-select form-select-sm" style="max-width: 170px;">
+            <option value="rolling30">Agenda (30 days)</option>
             <option value="dayGridMonth">Month</option>
             <option value="timeGridWeek">Week</option>
             <option value="timeGridDay">Day</option>
           </select>
+          <div class="form-check form-switch mb-0 ms-sm-1">
+            <input class="form-check-input" type="checkbox" id="myBookingsOnlySwitch">
+            <label class="form-check-label small text-muted" for="myBookingsOnlySwitch">My bookings only</label>
+          </div>
         </div>
         <div id="calendar" class="d-none h-100"></div>
       </div>
@@ -488,6 +491,7 @@
     const SUPABASE_URL     = 'https://osgmpmkqiwuixqnttllc.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zZ21wbWtxaXd1aXhxbnR0bGxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDc4MTQsImV4cCI6MjEwMTY4MzgxNH0.Uvz672RY9HtQIsfFLptm3YqXl8ICHbDUgFM_NYrskWw';
     const supabaseClient   = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const MAX_DAYS_SCHEDULE_INTO_FUTURE = 30; // Maximum days into the future a booking can be made
     const alertType = Object.freeze({
       primary: 'primary',
       secondary: 'secondary',
@@ -549,6 +553,7 @@
     let changePasswordModal = null;
     let activeEventId  = null;
     let isSuperAdmin   = false;
+    let showOnlyMyBookings = false;
     let currentView    = 'booking';
     let adminUsersCache = [];
     let pendingPasswordResetUser = null;
@@ -587,6 +592,9 @@
       document.getElementById('bookingView').classList.remove('d-none');
       document.getElementById('calendarToolbar').classList.add('d-none');
       document.getElementById('calendarToolbar').classList.remove('d-flex');
+      showOnlyMyBookings = false;
+      const myBookingsOnlySwitch = document.getElementById('myBookingsOnlySwitch');
+      if (myBookingsOnlySwitch) myBookingsOnlySwitch.checked = false;
       currentUser = null;
       isSuperAdmin = false;
       currentView = 'booking';
@@ -611,6 +619,7 @@
       currentUser = user;
       isSuperAdmin = await checkSuperAdminStatus(user.id);
       document.getElementById('bookingDate').value = getTomorrowDateString();
+      syncBookingDateConstraints();
       document.getElementById('loginSection').classList.add('d-none');
       document.getElementById('authStatus').textContent = `Logged in: ${user.email}${isSuperAdmin ? ' • Super admin' : ''}`;
       document.getElementById('changePasswordBtn').classList.remove('d-none');
@@ -886,7 +895,6 @@
 
       try {
         const { data, error } = await supabaseClient.rpc('admin_get_all_users');
-        console.log('admin_get_all_users RPC result:', data, error);
         if (error) throw error;
 
         const normalizedUsers = (Array.isArray(data) ? data : []).map(normalizeAdminUser).filter(user => user.id || user.email || user.name);
@@ -1034,6 +1042,63 @@
       const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
       const day = String(tomorrow.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
+    }
+
+    function getMaxBookingDateString() {
+      const maxDate = new Date();
+      maxDate.setDate(maxDate.getDate() + MAX_DAYS_SCHEDULE_INTO_FUTURE);
+      const year = maxDate.getFullYear();
+      const month = String(maxDate.getMonth() + 1).padStart(2, '0');
+      const day = String(maxDate.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function getMinBookingDateString() {
+      const minDate = new Date();
+      minDate.setDate(minDate.getDate()); //starting today
+      const year = minDate.getFullYear();
+      const month = String(minDate.getMonth() + 1).padStart(2, '0');
+      const day = String(minDate.getDate()).padStart(2, '0');
+      console.log(`${year}-${month}-${day}`);
+      return `${year}-${month}-${day}`;
+
+    }
+
+    function validateBookingDateRange(dateValue) {
+      if (!dateValue) {
+        return { isValid: false, message: 'Please choose a booking date.' };
+      }
+
+      const maxDate = getMaxBookingDateString();
+      const minDate = getMinBookingDateString();
+      if (dateValue < minDate) {
+        return { isValid: false, message: `Booking date cannot be earlier than tomorrow (${minDate}).` };
+      }
+
+      if (dateValue > maxDate) {
+        return { isValid: false, message: `Booking date cannot be more than 30 days ahead (${maxDate}).` };
+      }
+
+      return { isValid: true, message: '' };
+    }
+
+    function syncBookingDateConstraints() {
+      const bookingDateInput = document.getElementById('bookingDate');
+      if (!bookingDateInput) return;
+
+      bookingDateInput.max = getMaxBookingDateString();
+      bookingDateInput.min = getMinBookingDateString();
+      const validation = validateBookingDateRange(bookingDateInput.value);
+      bookingDateInput.setCustomValidity(validation.isValid ? '' : validation.message);
+    }
+
+    function updateBookButtonState() {
+      const bookingDateInput = document.getElementById('bookingDate');
+      const bookBtn = document.getElementById('bookBtn');
+      if (!bookingDateInput || !bookBtn) return;
+
+      const rangeValidation = validateBookingDateRange(bookingDateInput.value);
+      bookBtn.disabled = !rangeValidation.isValid;
     }
 
     function formatTimeLabel(minutes) {
@@ -1193,8 +1258,10 @@
     }
 
     function refreshBookingAvailability() {
+      syncBookingDateConstraints();
       updateScheduleHint();
       buildTimeOptions();
+      updateBookButtonState();
     }
 
     async function loadAmenities() {
@@ -1235,8 +1302,12 @@
         .select('booking_id, amenity_id, booked_time, user_id, amenities(name),end_time,public_profiles(name, unit_number)');
 
       if (error) { console.error('Bookings fetch error:', error); return []; }
-      console.log('Fetched bookings:', data);
-      return (data || []).map(b => {
+      const allBookings = data || [];
+      const visibleBookings = (showOnlyMyBookings && currentUser)
+        ? allBookings.filter(b => b.user_id === currentUser.id)
+        : allBookings;
+
+      return visibleBookings.map(b => {
         const info        = amenityColors[b.amenity_id] || {};
         const color       = info.color || '#6c757d';
         const amenityName = (b.amenities && b.amenities.name) || info.name || 'Booking';
@@ -1277,13 +1348,20 @@
       bookingModal = new bootstrap.Modal(document.getElementById('bookingModal'));
 
       calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
-        initialView: window.innerWidth < 768 ? 'listWeek' : 'dayGridMonth',
+        initialView: window.innerWidth < 768 ? 'rolling30' : 'dayGridMonth',
         initialDate: new Date(),
         height: '100%',
+        views: {
+          rolling30: {
+              type: 'list',
+              duration: { days: 30 },
+              buttonText: 'Next 30 days'
+          }
+        },
         headerToolbar: {
           left:   'prev,next today',
           center: 'title',
-          right:  'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+          right:  'dayGridMonth,timeGridWeek,timeGridDay,rolling30'
         },
         events: fetchBookings,
         datesSet: syncCalendarControls,
@@ -1326,13 +1404,21 @@
 
     document.getElementById('calendarDatePicker').addEventListener('change', () => {
       if (!calendar) return;
-      calendar.gotoDate(new Date(`${document.getElementById('calendarDatePicker').value}T12:00:00`));
+      const selectedDate = new Date(`${document.getElementById('calendarDatePicker').value}T12:00:00`);
+      if (isNaN(selectedDate.getTime())) return;
+      if (selectedDate.getFullYear() < 2000 || selectedDate.getFullYear() > 3000) return;
+      calendar.gotoDate(selectedDate);
     });
 
     document.getElementById('calendarViewSelect').addEventListener('change', (e) => {
       if (!calendar) return;
       calendar.changeView(e.target.value);
       syncCalendarControls();
+    });
+
+    document.getElementById('myBookingsOnlySwitch').addEventListener('change', (e) => {
+      showOnlyMyBookings = e.target.checked;
+      if (calendar) calendar.refetchEvents();
     });
 
     document.querySelectorAll('.view-btn').forEach(btn => {
@@ -1429,7 +1515,7 @@
 
 
         if (error) throw error;
-        showAlert(`User created successfully. UUID: ${data || 'n/a'}`, alertType.success);
+        showAlert(`User created successfully.`, alertType.success);
         adminUserModal.hide();
         document.getElementById('addUserForm').reset();
         await loadAdminData();
@@ -1448,6 +1534,15 @@
       const timeInput    = document.getElementById('bookingTime');
       const time         = timeInput.value;
       const durationMinutes = Number(document.getElementById('bookingDuration').value);
+
+      const rangeValidation = validateBookingDateRange(date);
+      if (!rangeValidation.isValid) {
+        document.getElementById('bookingDate').reportValidity();
+        showAlert(rangeValidation.message, alertType.danger);
+        updateBookButtonState();
+        return;
+      }
+
       const selectedOption = document.getElementById('amenitySelect').selectedOptions[0];
       const scheduleValue = selectedOption ? selectedOption.dataset.schedule : SAMPLE_SCHEDULE_JSON;
       const validation = validateBookingTime(new Date(`${date}T12:00:00`), time, durationMinutes, scheduleValue);
@@ -1502,6 +1597,7 @@
     changePasswordModal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
     confirmationModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
     document.getElementById('bookingDate').value = getTomorrowDateString();
+    syncBookingDateConstraints();
 
     updateThemeToggleLabel();
     refreshBookingAvailability();
