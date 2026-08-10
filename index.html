@@ -216,13 +216,13 @@
     <div class="container-fluid">
       <div class="d-flex align-items-center gap-2">
         <span class="navbar-brand mb-0 h1 fs-5">The Arbors HOA Amenity Booking</span>
-        <button id="themeToggleBtn" type="button" class="btn btn-outline-light " aria-label="Switch theme">
-          <i class="fa-solid fa-circle-half-stroke" aria-hidden="true"></i>
-        </button>
       </div>
       <div class="d-flex align-items-center gap-2">
         <div id="authStatus" class="text-white small">Not logged in</div>
         <div class="d-flex align-items-center gap-2">
+          <button id="themeToggleBtn" type="button" class="btn btn-outline-light " aria-label="Switch theme">
+            <i class="fa-solid fa-circle-half-stroke" aria-hidden="true"></i>
+          </button>
           <button id="changePasswordBtn" class="btn btn-secondary d-none" title="Change password"><i class="fa-solid fa-key"></i></button>
           <button id="logoutBtn" class="btn btn-danger d-none" title="Logout from system"><i class="fa-solid fa-right-from-bracket"></i></button>
         </div>
@@ -676,11 +676,12 @@
 
     async function showBookingUI(user) {
       currentUser = user;
+      console.log('Logged in user:', user);
       isSuperAdmin = await checkSuperAdminStatus(user.id);
       document.getElementById('bookingDate').value = getTomorrowDateString();
       syncBookingDateConstraints();
       document.getElementById('loginSection').classList.add('d-none');
-      document.getElementById('authStatus').textContent = `Logged in: ${user.email}${isSuperAdmin ? ' • Super admin' : ''}`;
+      document.getElementById('authStatus').innerHTML = `Hello <span class="fw-bold">${user.user_metadata.name}</span><span class="text-muted"> (${user.email ? user.email : 'no email on record'}) ${isSuperAdmin ? ' • Super admin' : ''}</span>`;
       document.getElementById('changePasswordBtn').classList.remove('d-none');
       document.getElementById('logoutBtn').classList.remove('d-none');
       document.getElementById('viewSwitcher').classList.toggle('d-none', !isSuperAdmin);
@@ -986,6 +987,7 @@
       });
       if (error) showAlert('Login failed: ' + error.message, alertType.danger);
       else showBookingUI(data.user);
+      console.log('Login attempt result:', data, error);
       await flipForm(false);
     });
 
