@@ -912,7 +912,7 @@
         email:    document.getElementById('loginEmail').value,
         password: document.getElementById('loginPassword').value
       });
-      if (error) alert('Login failed: ' + error.message);
+      if (error) showAlert('Login failed: ' + error.message, alertType.danger);
       else showBookingUI(data.user);
     });
 
