@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Arbors Amenities Booking v1.0</title>
+  <title>The Arbors Amenities Booking v1.1</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap" rel="stylesheet">
@@ -694,7 +694,8 @@
       const unitNumber = source.unit_number || source.unitNumber || 'N/A';
       const createdAt = source.created_at || source.createdAt || source.created || source.inserted_at || '';
       const isBanned = source.is_banned ?? source.isBanned ?? source.banned ?? true;
-      return { id, name, email, isSuperAdmin, unitNumber, createdAt, isBanned, raw: source };
+      const lastLogin = source.last_sign_in_at ? new Date(source.last_sign_in_at).toLocaleString() : 'Never logged in';
+      return { id, name, email, isSuperAdmin, unitNumber, createdAt, isBanned, lastLogin, raw: source };
     }
 
     function renderAdminUsers() {
@@ -728,9 +729,12 @@
           <tr>
             <td>
               <div class="fw-semibold">${escapeHtml(user.name || 'Unnamed user')} (${escapeHtml(user.unitNumber || 'N/A')}) ${user.isBanned ? '<span class="badge bg-warning">DISABLED</span>' : ''}</div>
+              <div class="small text-muted">${escapeHtml(user.lastLogin)}</div>
+            </td>
+            <td>
+              ${escapeHtml(user.email || '—')}
               <div class="small text-muted">${escapeHtml(user.id || 'No UUID')}</div>
             </td>
-            <td>${escapeHtml(user.email || '—')}</td>
             <td>${user.isSuperAdmin ? '<span class="badge bg-danger">Super admin</span>' : '<span class="badge bg-secondary">User</span>'}</td>
             <td>${escapeHtml(user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—')}</td>
             <td>
