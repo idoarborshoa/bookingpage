@@ -3,8 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Arbors Amenities Booking v0.8</title>
+  <title>The Arbors Amenities Booking v1.0</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
   <script>
@@ -31,9 +35,27 @@
     :root {
       --hoa-primary: #217225;
       --hoa-on-primary: #ffffff;
+      --fc-list-event-hover-bg-color:#f5f5f5;
+    }
+    [data-bs-theme="dark"] {
+      --hoa-primary: #198754;
+      --hoa-on-primary: #ffffff;
+      --fc-list-event-hover-bg-color:var(--bs-light-bg-subtle);
+      .fc .fc-list-sticky .fc-list-day > * {
+        background-color: var(--bs-secondary-bg);
+      }
     }
 
-    html, body { height: 100%; margin: 0; overflow: hidden; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Inter', 'Roboto', 'Manrope', sans-serif;
+    }
+    .navbar-brand {
+      font-family: 'Inter', 'Roboto', 'Manrope', serif;
+      letter-spacing: 0.2px;
+    }
     #mainLayout { height: calc(100vh - 52px); display: flex; }
     #sidebar {
       width: 320px;
@@ -58,12 +80,25 @@
     .admin-panel { display: none; }
     .admin-panel.active { display: block; }
 
+    .fc a.fc-col-header-cell-cushion, /* Week/Day/Month column headers */
+.fc a.fc-daygrid-day-number,      /* Month/Week day numbers */
+.fc a.fc-list-day-cushion, .fc a.fc-list-day-text, .fc a.fc-list-day-side-text        /* List/Agenda view date headers */ {
+  pointer-events: none;
+  cursor: default;
+  text-decoration: none;
+  color: inherit;
+}
+
     .hoa-navbar {
       background: var(--hoa-primary);
     }
     .hoa-navbar .navbar-brand,
     .hoa-navbar #authStatus {
       color: var(--hoa-on-primary) !important;
+    }
+    .icon-btn i {
+      font-size: 0.9rem;
+      line-height: 1;
     }
 
     .my-alert-class {
@@ -134,6 +169,8 @@
       #bookingSection { order: -1; }
       #loginSection { order: 0; }
       #adminTabSection { margin-top: 0.75rem; }
+
+
     }
   </style>
 </head>
@@ -142,14 +179,16 @@
   <nav class="navbar navbar-dark hoa-navbar py-1">
     <div class="container-fluid">
       <div class="d-flex align-items-center gap-2">
-        <span class="navbar-brand mb-0 h1 fs-5">Arbors HOA Amenity Booking</span>
-        <button id="themeToggleBtn" type="button" class="btn btn-outline-dark btn-sm py-0 px-2" aria-label="Switch theme">&#127769;</button>
+        <span class="navbar-brand mb-0 h1 fs-5">The Arbors HOA Amenity Booking</span>
+        <button id="themeToggleBtn" type="button" class="btn btn-outline-light " aria-label="Switch theme">
+          <i class="fa-solid fa-circle-half-stroke" aria-hidden="true"></i>
+        </button>
       </div>
       <div class="d-flex align-items-center gap-2">
         <div id="authStatus" class="text-white small">Not logged in</div>
         <div class="d-flex align-items-center gap-2">
-          <button id="changePasswordBtn" class="btn btn-secondary py-0 px-2 d-none" title="Change password">&#128273;</button>
-          <button id="logoutBtn" class="btn btn-danger py-0 px-2 d-none" title="Logout from system">&#9211;</button>
+          <button id="changePasswordBtn" class="btn btn-secondary d-none" title="Change password"><i class="fa-solid fa-key"></i></button>
+          <button id="logoutBtn" class="btn btn-danger d-none" title="Logout from system"><i class="fa-solid fa-right-from-bracket"></i></button>
         </div>
       </div>
     </div>
@@ -175,7 +214,7 @@
               <input type="password" id="loginPassword" class="form-control form-control-sm"
                 required>
             </div>
-            <button type="submit" class="btn btn-primary btn-sm w-100">Sign In</button>
+            <button type="submit" class="btn btn-primary btn-sm w-100"><i class="fa-solid fa-right-to-bracket"></i> Sign In <i class="fa-solid fa-right-to-bracket"></i></button>
           </form>
         </div>
       </div>
@@ -268,7 +307,7 @@
               </select>
             </div>
             <div id="scheduleHint" class="form-text small text-muted mt-1"></div>
-            <button type="submit" id="bookBtn" class="btn btn-success btn-sm w-100">Reserve Slot</button>
+            <button type="submit" id="bookBtn" class="btn btn-success btn-sm w-100"><i class="fa-solid fa-calendar-check"></i> Reserve Amenity <i class="fa-solid fa-calendar-check"></i></button>
           </form>
         </div>
       </div>
@@ -319,7 +358,7 @@
         <div class="card shadow-sm h-100">
           <div class="card-header d-flex align-items-center justify-content-between">
             <h6 class="mb-0">User Management</h6>
-            <button type="button" id="openAddUserModalBtn" class="btn btn-primary btn-sm" title="Add user">＋</button>
+            <button type="button" id="openAddUserModalBtn" class="btn btn-primary btn-sm" title="Add user"><i class="fa-solid fa-user-plus"></i></button>
           </div>
           <div class="card-body">
             <div class="mb-3">
@@ -375,16 +414,16 @@
         <form id="addUserForm">
           <div class="modal-body py-2">
             <div class="mb-2">
-              <label class="form-label small mb-1">Email</label>
-              <input type="email" id="newUserEmail" class="form-control form-control-sm" required>
+              <label class="form-label small mb-1"><i class="fa-solid fa-envelope"></i> Email <small class="fst-italic">(email address)</small></label>
+              <input type="email" id="newUserEmail" class="form-control form-control-sm text-center" required>
             </div>
             <div class="mb-2">
-              <label class="form-label small mb-1">Name</label>
-              <input type="text" id="newUserName" class="form-control form-control-sm" required>
+              <label class="form-label small mb-1"><i class="fa-solid fa-id-badge"></i> Name <small class="fst-italic">(first and last name)</small></label>
+              <input type="text" id="newUserName" class="form-control form-control-sm text-center" required>
             </div>
             <div class="mb-2">
-              <label class="form-label small mb-1">Unit Number</label>
-              <input type="number" min="1" max="250" id="newUserUnitNumber" class="form-control form-control-sm" required>
+              <label class="form-label small mb-1"><i class="fa-solid fa-house"></i> Unit Number<small class="fst-italic">(1-250)</small></label>
+              <input type="number" min="1" max="250" id="newUserUnitNumber" class="form-control form-control-sm text-center" required>
             </div>
           </div>
           <div class="modal-footer py-2">
@@ -423,6 +462,27 @@
     </div>
   </div>
 
+
+    <div class="modal fade" id="confirmationModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title">Confirmation</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="confirmationForm">
+          <div class="modal-body py-2">
+            <p id="confirmationMessage" class="mb-2"></p>
+          </div>
+          <div class="modal-footer py-2">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm" id="confirmationConfirmBtn">Confirm</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     const SUPABASE_URL     = 'https://osgmpmkqiwuixqnttllc.supabase.co';
@@ -447,7 +507,11 @@
         if (!window.passwordPromptShown) {
           window.passwordPromptShown = true;
 
+          document.getElementById('changePasswordForm').reset();
+          changePasswordModal.show();
+          /*
           const newPassword = prompt('Welcome! Please set your new password:');
+          //TODO: change to use the new password form
 
           if (newPassword) {
             const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
@@ -460,6 +524,7 @@
               showAlert('Failed to set password: ' + error.message, alertType.danger);
             }
           }
+            */
         }
       }
     });
@@ -670,10 +735,12 @@
             <td>${escapeHtml(user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—')}</td>
             <td>
               <div class="btn-group btn-group-sm">
-                <button class="btn btn-secondary" type="button" data-action="reset" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''} title="Reset password for ${escapeHtml(user.name || user.email || '')}">&#128273;</button>
+                <button class="btn btn-secondary icon-btn" type="button" data-action="reset" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''} title="Reset password for ${escapeHtml(user.name || user.email || '')}">
+                  <i class="fa-solid fa-arrow-rotate-left"></i>
+                </button>
                 ${user.isBanned
-                  ? `<button class="btn btn-primary" type="button" data-action="enable" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''} title="Enable the user ${escapeHtml(user.name || user.email || '')}">&#10004;</button>`
-                  : `<button class="btn btn-danger" type="button" data-action="disable" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''} title="Disable the user ${escapeHtml(user.name || user.email || '')}">&#128465;</button>`
+                  ? `<button class="btn btn-primary icon-btn" type="button" data-action="enable" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''} title="Enable the user ${escapeHtml(user.name || user.email || '')}"><i class="fa-solid fa-user-check"></i></button>`
+                  : `<button class="btn btn-danger icon-btn" type="button" data-action="disable" data-user-id="${escapeHtml(user.id || '')}" ${isSelf ? 'disabled' : ''} title="Disable the user ${escapeHtml(user.name || user.email || '')}"><i class="fa-solid fa-user-xmark"></i></button>`
                 }
               </div>
             </td>
@@ -728,12 +795,27 @@
       }
 
       if (currentUser && user.id === currentUser.id) {
-        showAlert('You cannot delete your own account from this screen.', alertType.danger);
+        showAlert('You cannot disable your own account from this screen.', alertType.danger);
         return;
       }
 
-      if (!window.confirm(`Delete ${user.name || user.email || 'this user'}?`)) return;
+      //if (!window.confirm(`Disable ${user.name || user.email || 'this user'}?`)) return;
+      showConfirmationModal(`Disable ${user.name || user.email || 'this user'}?`, async () => {
+        try {
+          const { data, error } = await supabaseClient.functions.invoke('admin-ban-user', {
+            body: { user_id: user.id }
+          });
+          if (error) throw error;
 
+          showAlert('User disabled successfully.', alertType.success);
+          await loadAdminData();
+        } catch (err) {
+          showAlert(`Could not disable user: ${err.message}`, alertType.danger);
+        }
+      });
+      return;
+
+      /*
       try {
         const { data, error } = await supabaseClient.functions.invoke('admin-ban-user', {
           body: { user_id: user.id }
@@ -745,6 +827,7 @@
       } catch (err) {
         showAlert(`Could not disable user: ${err.message}`, alertType.danger);
       }
+        */
     }
 
     async function enableUser_AdminsOnly(user) {
@@ -759,8 +842,22 @@
         return;
       }
 
-      if (!window.confirm(`Enable ${user.name || user.email || 'this user'}?`)) return;
+      //if (!window.confirm(`Enable ${user.name || user.email || 'this user'}?`)) return;
+      showConfirmationModal(`Enable ${user.name || user.email || 'this user'}?`, async () => {
+        try {
+          const { data, error } = await supabaseClient.functions.invoke('admin-unban-user', {
+            body: { user_id: user.id }
+          });
+          if (error) throw error;
 
+          showAlert('User enabled successfully.', alertType.success);
+          await loadAdminData();
+        } catch (err) {
+          showAlert(`Could not enable user: ${err.message}`, alertType.danger);
+        }
+      });
+      return;
+      /*
       try {
         const { data, error } = await supabaseClient.functions.invoke('admin-unban-user', {
           body: { user_id: user.id }
@@ -772,46 +869,7 @@
       } catch (err) {
         showAlert(`Could not enable user: ${err.message}`, alertType.danger);
       }
-    }
-
-    async function deleteAdminUser_OLD(user) {
-      const userId = user.id;
-      if (!userId) {
-        showAlert('This user does not have a UUID available for deletion.', alertType.danger);
-        return;
-      }
-
-      if (currentUser && user.id === currentUser.id) {
-        showAlert('You cannot delete your own account from this screen.', alertType.danger);
-        return;
-      }
-
-      if (!window.confirm(`Delete ${user.name || user.email || 'this user'}?`)) return;
-
-      const attempts = [
-        () => supabaseClient.rpc('admin_delete_user', { p_target_user_id: userId }),
-        () => supabaseClient.rpc('admin_delete_user', { p_user_id: userId }),
-        () => supabaseClient.auth.admin && typeof supabaseClient.auth.admin.deleteUser === 'function'
-          ? supabaseClient.auth.admin.deleteUser(userId)
-          : Promise.reject(new Error('Delete API unavailable'))
-      ];
-
-      let lastError = null;
-      for (const attempt of attempts) {
-        try {
-          const { error } = await attempt();
-          if (!error) {
-            showAlert('User deleted successfully.', alertType.success);
-            await loadAdminData();
-            return;
-          }
-          lastError = error;
-        } catch (err) {
-          lastError = err;
-        }
-      }
-
-      showAlert(`Could not delete user: ${lastError?.message || 'Unknown error'}`, alertType.danger);
+        */
     }
 
     async function loadAdminData() {
@@ -899,6 +957,25 @@
       submitBtn.textContent = 'Update Password';
     });
 
+
+    // - confirmation helper
+    function showConfirmationModal(message, onConfirm) {
+      const confirmationMessage = document.getElementById('confirmationMessage');
+      const confirmationForm = document.getElementById('confirmationForm');
+      const confirmationConfirmBtn = document.getElementById('confirmationConfirmBtn');
+
+      confirmationMessage.textContent = message;
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        onConfirm();
+        confirmationModal.hide();
+        confirmationForm.removeEventListener('submit', handleSubmit);
+      };
+
+      confirmationForm.addEventListener('submit', handleSubmit);
+      confirmationModal.show();
+    }
     // ── Amenities ─────────────────────────────────────────────────────────────
 
     function parseAmenitySchedule(scheduleValue) {
@@ -1218,10 +1295,10 @@
 
           document.getElementById('modalTitle').textContent = amenityName;
           document.getElementById('modalBody').innerHTML = `
-            ${isMine ? '<div class="mt-2"><span class="badge bg-success">My Booking</span></div>' : `<div class="mt-2"><span class="badge bg-secondary">Booked by ${info.event.extendedProps.userName} (${info.event.extendedProps.unitNumber})</span></div>`}
-            <p class="mb-1"><strong>Date:</strong> ${dateStr}</p>
-            <p class="mb-0"><strong>Start Time:</strong> ${timeStr}</p>
-            <p class="mb-0"><strong>End Time:</strong> ${endTimeStr}</p>
+            <div class="my-3">${isMine ? '<span class="badge bg-success">My Booking</span>' : `<span class="badge bg-secondary">Booked by ${info.event.extendedProps.userName} (${info.event.extendedProps.unitNumber})</span>`}</div>
+            <p class="my-2"><strong><i class="fa-solid fa-calendar"></i> Date:</strong> ${dateStr}</p>
+            <p class="my-2"><strong><i class="fa-solid fa-clock"></i> Start Time:</strong> ${timeStr}</p>
+            <p class="my-2"><strong><i class="fa-solid fa-clock"></i> End Time:</strong> ${endTimeStr}</p>
           `;
 
           
@@ -1309,6 +1386,10 @@
       } else if (action === 'delete') {
         await deleteAdminUser(user);
         //TODO: options enable / disable user instead of delete
+      } else if (action === 'enable') {
+        await enableUser_AdminsOnly(user);
+      } else if (action === 'disable') {
+        await disableUser_AdminsOnly(user);
       }
     });
 
@@ -1397,14 +1478,12 @@
     function updateThemeToggleLabel() {
       const btn = document.getElementById('themeToggleBtn');
       if (!btn) return;
-      btn.innerHTML = g_isDarkMode ? '&#9728;' : '&#127769;';
-      if (g_isDarkMode) {
-        btn.classList.add('btn-outline-light');
-        btn.classList.remove('btn-outline-dark');
-      } else {
-        btn.classList.add('btn-outline-dark');
-        btn.classList.remove('btn-outline-light');
-      }
+      btn.innerHTML = g_isDarkMode
+        ? '<i class="fa-solid fa-sun" aria-hidden="true"></i>'
+        : '<i class="fa-solid fa-moon" aria-hidden="true"></i>';
+      const nextModeLabel = g_isDarkMode ? 'Switch to light theme' : 'Switch to dark theme';
+      btn.setAttribute('aria-label', nextModeLabel);
+      btn.setAttribute('title', nextModeLabel);
     }
 
     document.getElementById('themeToggleBtn').addEventListener('click', () => {
@@ -1417,7 +1496,9 @@
     adminUserModal = new bootstrap.Modal(document.getElementById('addUserModal'));
     //resetPasswordModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
     changePasswordModal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
+    confirmationModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
     document.getElementById('bookingDate').value = getTomorrowDateString();
+
     updateThemeToggleLabel();
     refreshBookingAvailability();
     checkUserSession();
