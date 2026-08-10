@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Arbors Amenities Booking v1.2</title>
+  <title>The Arbors Amenities Booking v1.3</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap" rel="stylesheet">
@@ -169,8 +169,42 @@
       #loginSection { order: 0; }
       #adminTabSection { margin-top: 0.75rem; }
 
+        
 
     }
+
+    .my_loading {
+          display: flex;
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height:100%;
+          background-color: rgba(var(--bs-body-bg-rgb),0.95);
+          color: var(--hoa-primary);
+          justify-content: center;
+          align-items: center;
+          flex-direction: column;
+          /*transform: translate(-50%, -50%); */
+          z-index: 1047;
+      }
+      .spinner-container {
+    position: relative; /* This is crucial: allows absolute positioning of children */
+    display: flex; /* Helps center the spinner initially */
+    justify-content: center;
+    align-items: center;
+}
+.spinner-logo {
+    position: absolute; /* Position the logo relative to its parent (.spinner-container) */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Centers the logo perfectly */
+    max-width: 60%; /* Adjust as needed - makes sure logo fits within spinner */
+    max-height: 60%; /* Adjust as needed */
+    height: auto; /* Maintain aspect ratio */
+    /* You might want to add a z-index if the spinner content overlaps */
+    /* z-index: 1; */
+}
   </style>
 </head>
 <body>
@@ -192,8 +226,17 @@
       </div>
     </div>
   </nav>
-
+    <!-- loading -->
+     <div id="loading" class="d-none my_loading">
+        <div class="spinner-container">
+            <div class="spinner-border" style="width: 15rem; height: 15rem;" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <!-- <img src="shilav_logo_nobg.png" alt="Shilav Logo" class="spinner-logo" /> -->
+        </div>
+    </div>
   <div id="mainLayout">
+
 
     <!-- ── Sidebar ── -->
     <div id="sidebar">
@@ -492,6 +535,7 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zZ21wbWtxaXd1aXhxbnR0bGxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDc4MTQsImV4cCI6MjEwMTY4MzgxNH0.Uvz672RY9HtQIsfFLptm3YqXl8ICHbDUgFM_NYrskWw';
     const supabaseClient   = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const MAX_DAYS_SCHEDULE_INTO_FUTURE = 30; // Maximum days into the future a booking can be made
+    const loadingElement = document.getElementById("loading");
     const alertType = Object.freeze({
       primary: 'primary',
       secondary: 'secondary',
@@ -578,6 +622,18 @@
 
     // ── UI helpers ────────────────────────────────────────────────────────────
 
+    async function flipForm(shouldDisable){
+      //console.log('setting form to '+(shouldDisable ? 'disabled' : 'enabled')+' state');
+      return new Promise(resolve => {
+          if (shouldDisable){
+              loadingElement.classList.remove('d-none');
+          } else {
+              loadingElement.classList.add('d-none');
+          }
+          resolve();
+        });
+
+  }
     function showLoginUI() {
       document.getElementById('loginSection').classList.remove('d-none');
       document.getElementById('bookingSection').classList.add('d-none');
@@ -920,17 +976,21 @@
 
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      await flipForm(true);
       const { data, error } = await supabaseClient.auth.signInWithPassword({
         email:    document.getElementById('loginEmail').value,
         password: document.getElementById('loginPassword').value
       });
       if (error) showAlert('Login failed: ' + error.message, alertType.danger);
       else showBookingUI(data.user);
+      await flipForm(false);
     });
 
     document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await flipForm(true);
       await supabaseClient.auth.signOut();
       showLoginUI();
+      await flipForm(false);
     });
 
     document.getElementById('changePasswordBtn').addEventListener('click', () => {
@@ -939,6 +999,7 @@
     });
 
     document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+      await flipForm(true);
       e.preventDefault();
       const newPassword = document.getElementById('changePasswordNew').value;
       const confirmPassword = document.getElementById('changePasswordConfirm').value;
@@ -946,6 +1007,7 @@
 
       if (newPassword !== confirmPassword) {
         showAlert('Passwords do not match.', alertType.danger);
+        await flipForm(false);
         return;
       }
 
@@ -967,6 +1029,7 @@
 
       submitBtn.disabled = false;
       submitBtn.textContent = 'Update Password';
+      await flipForm(false);
     });
 
 
@@ -1059,7 +1122,6 @@
       const year = minDate.getFullYear();
       const month = String(minDate.getMonth() + 1).padStart(2, '0');
       const day = String(minDate.getDate()).padStart(2, '0');
-      console.log(`${year}-${month}-${day}`);
       return `${year}-${month}-${day}`;
 
     }
@@ -1435,6 +1497,7 @@
 
     document.getElementById('cancelBookingBtn').addEventListener('click', async () => {
       if (!activeEventId) return;
+      await flipForm(true);
       const btn = document.getElementById('cancelBookingBtn');
       btn.disabled = true;
       btn.textContent = 'Cancelling…';
@@ -1455,6 +1518,7 @@
         calendar.refetchEvents();
         showAlert('Booking cancelled successfully.', alertType.success);
       }
+      await flipForm(false);
     });
 
     // ── New booking form ──────────────────────────────────────────────────────
@@ -1488,6 +1552,7 @@
     });
 
     document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+      await flipForm(true);
       e.preventDefault();
       const email = document.getElementById('newUserEmail').value.trim();
       const name = document.getElementById('newUserName').value.trim();
@@ -1524,10 +1589,12 @@
       } finally {
         createBtn.disabled = false;
         createBtn.textContent = 'Create User';
+        await flipForm(false);
       }
     });
 
     document.getElementById('bookingForm').addEventListener('submit', async (e) => {
+      await flipForm(true);
       e.preventDefault();
       const amenityId    = document.getElementById('amenitySelect').value;
       const date         = document.getElementById('bookingDate').value;
@@ -1540,6 +1607,7 @@
         document.getElementById('bookingDate').reportValidity();
         showAlert(rangeValidation.message, alertType.danger);
         updateBookButtonState();
+        await flipForm(false);
         return;
       }
 
@@ -1548,6 +1616,7 @@
       const validation = validateBookingTime(new Date(`${date}T12:00:00`), time, durationMinutes, scheduleValue);
       if (!validation.isValid) {
         showAlert(validation.message, alertType.danger);
+        await flipForm(false);
         return;
       }
 
@@ -1564,14 +1633,15 @@
       });
       if (error) {
         console.log('Error Code:', error.code);
-  console.log('Error Message:', error.message);
+        console.log('Error Message:', error.message);
       }
       
 
       showAlert(error ? error.message : `Booking confirmed!`, error ? alertType.danger : alertType.success);
       bookBtn.disabled = false;
-      bookBtn.textContent = 'Reserve Slot';
+      bookBtn.innerHTML = '<i class="fa-solid fa-calendar-check"></i> Reserve Amenity <i class="fa-solid fa-calendar-check"></i>';
       if (!error && calendar) calendar.refetchEvents();
+      await flipForm(false);
     });
 
     function updateThemeToggleLabel() {
