@@ -30,6 +30,7 @@
         g_htmlElement.setAttribute('data-bs-theme', 'light');
     }
     //g_htmlElement.setAttribute('data-bs-theme', 'light');
+    const FULL_REDIRECT_PAGE = 'https://booking.arbors-ryebrook.com/';
   </script>
   <style>
     :root {
@@ -845,7 +846,7 @@
         const { error } = await supabaseClient.auth.resetPasswordForEmail(
           user.email,
           {
-            redirectTo: 'https://idoarborshoa.github.io/bookingpage/' // window.location.origin + '/index.html',
+            redirectTo: FULL_REDIRECT_PAGE //'https://idoarborshoa.github.io/bookingpage/' // window.location.origin + '/index.html',
           }
         );
 
@@ -1575,7 +1576,7 @@
             name: name,
             unit_number: unitNumber,
             is_superadmin: false,
-            redirectTo: 'https://idoarborshoa.github.io/bookingpage/' // window.location.origin + '/index.html'
+            redirectTo: FULL_REDIRECT_PAGE // 'https://idoarborshoa.github.io/bookingpage/' // window.location.origin + '/index.html'
           }
         });
 
