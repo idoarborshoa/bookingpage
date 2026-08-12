@@ -499,6 +499,7 @@ async function loadAdminData() {
 // ── Auth ──────────────────────────────────────────────────────────────────
 
 async function checkUserSession() {
+    await flipForm(true);
     const {
         data: {
             session
@@ -506,6 +507,7 @@ async function checkUserSession() {
     } = await supabaseClient.auth.getSession();
     if (session) showBookingUI(session.user);
     else showLoginUI();
+    await flipForm(false);
 }
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
