@@ -174,7 +174,7 @@ async function showBookingUI(user) {
     document.getElementById('bookingDate').value = getTomorrowDateString();
     syncBookingDateConstraints();
     document.getElementById('loginSection').classList.add('d-none');
-    document.getElementById('authStatus').innerHTML = `Hello <span class="fw-bold">${user.user_metadata.name}</span><span class="text-muted"> (${user.email ? user.email : 'no email on record'}) ${isSuperAdmin ? ' • Super admin' : ''}</span>`;
+    document.getElementById('authStatus').innerHTML = `Hello <span class="fw-bold">${user.user_metadata.name}</span><span class="small"> (${user.email ? user.email : 'no email on record'}) ${isSuperAdmin ? ' • Super admin' : ''}</span>`;
     document.getElementById('changePasswordBtn').classList.remove('d-none');
     document.getElementById('logoutBtn').classList.remove('d-none');
     document.getElementById('viewSwitcher').classList.toggle('d-none', !isSuperAdmin);
